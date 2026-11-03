@@ -23,6 +23,14 @@ oraz **matrycą LED 8×8** jako wskaźnikiem jakości powietrza.
 
 ---
 
+## 🖨️ Obudowa 3D / 3D enclosure
+
+Model obudowy stacji jest dostępny na MakerWorld:
+
+🔗 **https://makerworld.com/pl/models/3538412-air-station-home-pms7003-and-other-sensors**
+
+---
+
 <a id="polski"></a>
 ## 🇵🇱 Polski — pełny opis
 
