@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Stacja Powietrza — monitor jakości powietrza: PM1, PM2.5, PM10, CO2, TVOC, formaldehyd, CO oraz temperatura i wilgotność.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%2300C853'/%3E%3Ctext%20x='32'%20y='41'%20font-family='Arial'%20font-size='15'%20font-weight='bold'%20fill='%23fff'%20text-anchor='middle'%3EPM2.5%3C/text%3E%3C/svg%3E">
+<title>Stacja Powietrza</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">⛁</span>
+    <div>
+      <h1>Stacja Powietrza</h1>
+      <p class="sub">monitor jakości powietrza</p>
+    </div>
+  </div>
+  <div class="chips">
+    <span id="chip-time" class="chip">--:--:--</span>
+    <span id="chip-wifi" class="chip">WiFi ?</span>
+    <span id="chip-mqtt" class="chip">MQTT ?</span>
+    <span id="chip-sd" class="chip">SD ?</span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="pulpit">Pulpit</button>
+  <button class="tab" data-tab="wykresy">Wykresy</button>
+  <button class="tab" data-tab="filament">Filament</button>
+  <button class="tab" data-tab="led">LED RGBIC</button>
+  <button class="tab" data-tab="kalibracja">Kalibracja</button>
+  <button class="tab" data-tab="konfiguracja">Konfiguracja</button>
+  <button class="tab" data-tab="logi">Logi</button>
+  <button class="tab" data-tab="diagnostyka">Diagnostyka</button>
+</nav>
+
+<main>
+  <!-- PULPIT -->
+  <section id="tab-pulpit" class="tabpage active">
+    <div class="grid">
+
+      <div class="card aqi-card">
+        <h2>Jakość powietrza (IAQ)</h2>
+        <div class="aqi-big" id="aqi-value">--</div>
+        <div class="aqi-label" id="aqi-label">czekam na dane…</div>
+        <div class="aqi-cause" id="aqi-cause">Największy wpływ: —</div>
+        <div class="aqi-scale">
+          <div class="aqi-track"><div class="aqi-marker" id="aqi-marker"></div></div>
+          <div class="aqi-ticks">
+            <span style="left:0%">0</span>
+            <span style="left:10%">50</span>
+            <span style="left:20%">100</span>
+            <span style="left:30%">150</span>
+            <span style="left:40%">200</span>
+            <span style="left:60%">300</span>
+            <span style="left:100%">500</span>
+          </div>
+        </div>
+        <div class="aqi-legend">
+          <div class="aqi-lg"><span class="sw" style="background:#00C853"></span>Dobra<em>0–50</em></div>
+          <div class="aqi-lg"><span class="sw" style="background:#FFD600"></span>Umiarkowana<em>51–100</em></div>
+          <div class="aqi-lg"><span class="sw" style="background:#FF9100"></span>Zła (wrażliwe grupy)<em>101–150</em></div>
+          <div class="aqi-lg"><span class="sw" style="background:#E53935"></span>Zła<em>151–200</em></div>
+          <div class="aqi-lg"><span class="sw" style="background:#8E24AA"></span>Bardzo zła<em>201–300</em></div>
+          <div class="aqi-lg"><span class="sw" style="background:#7B1F1F"></span>Niebezpieczna<em>301–500</em></div>
+        </div>
+        <div class="motion" id="motion">Bez ruchu</div>
+      </div>
+
+      <div class="card">
+        <h2>Cząsteczki (PMS7003)</h2>
+        <div class="metric"><span>PM1.0</span><b id="m-pm1">--</b><em>µg/m³</em></div>
+        <div class="metric"><span>PM2.5</span><b id="m-pm25">--</b><em>µg/m³</em></div>
+        <div class="metric"><span>PM10</span><b id="m-pm10">--</b><em>µg/m³</em></div>
+        <div class="metric"><span>PM2.5 · 1 min</span><b id="m-pm25-1m">--</b><em>µg/m³</em></div>
+        <div class="metric"><span>PM2.5 · 5 min</span><b id="m-pm25-5m">--</b><em>µg/m³</em></div>
+        <div class="metric"><span>PM2.5 · 24 h</span><b id="m-pm25-24h">--</b><em>µg/m³</em></div>
+        <p class="hint" id="pm-rh-hint">Korekcja wilgotności: —</p>
+        <div class="lgd">
+          <div class="lgd-row"><span class="nm">PM2.5</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>0–10</span>
+            <span class="lgd-i"><i class="sw" style="background:#76FF03"></i>10–15</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>15–25</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>25–37,5</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>37,5+</span>
+          </div>
+          <div class="lgd-row"><span class="nm">PM10</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>0–20</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>20–45</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>45–75</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>75+</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Temp. / Wilgotność (DHT11)</h2>
+        <div class="metric"><span>Temperatura</span><b id="m-temp">--</b><em>°C</em></div>
+        <div class="metric"><span>Wilgotność</span><b id="m-hum">--</b><em>% RH</em></div>
+        <div class="metric"><span>Temperatura · 24 h</span><b id="m-temp-24h">--</b><em>°C</em></div>
+        <div class="metric"><span>Wilgotność · 24 h</span><b id="m-hum-24h">--</b><em>% RH</em></div>
+        <div class="metric"><span>Temperatura · zewn. (HA)</span><b id="m-tempext">--</b><em>°C</em></div>
+        <div class="metric"><span>Wilgotność · zewn. (HA)</span><b id="m-humext">--</b><em>% RH</em></div>
+        <p class="hint">Temperatura i wilgotność są logowane razem z PM — wilgotność wpływa na odczyty czujnika optycznego PMS7003.</p>
+      </div>
+
+      <div class="card">
+        <h2>Gazy (TVOC 30712)</h2>
+        <div class="metric"><span>CO₂</span><b id="m-co2">--</b><em>ppm</em></div>
+        <div class="metric"><span>Formaldehyd</span><b id="m-ch2o">--</b><em>ppb</em></div>
+        <div class="metric"><span>TVOC</span><b id="m-tvoc">--</b><em>ppm</em></div>
+        <div class="metric"><span>Poziom</span><b id="m-tvoclvl">--</b><em>1–4</em></div>
+        <div class="lgd">
+          <div class="lgd-row"><span class="nm">CO₂</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>0–600</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>600–1000</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>1000–1500</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>1500+</span>
+          </div>
+          <div class="lgd-row"><span class="nm">TVOC</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>0–0.3</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>0.3–0.5</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>0.5–1.0</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>1.0+</span>
+          </div>
+          <div class="lgd-row"><span class="nm">CH₂O</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>0–20</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>20–40</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>40–80</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>80+</span>
+          </div>
+          <div class="lgd-row"><span class="nm">Poziom</span>
+            <span class="lgd-i"><i class="sw" style="background:#00C853"></i>1 dobre</span>
+            <span class="lgd-i"><i class="sw" style="background:#FFD600"></i>2 umiark.</span>
+            <span class="lgd-i"><i class="sw" style="background:#FF9100"></i>3 złe</span>
+            <span class="lgd-i"><i class="sw" style="background:#E53935"></i>4 b. złe</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>MiCS5524 (gaz, ADS1115 AIN0)</h2>
+        <div class="metric"><span>Napięcie wyjścia</span><b id="m-micsv">--</b><em>V</em></div>
+        <div class="metric"><span>Rs/R0 (opór czujnika)</span><b id="m-micsrs">--</b><em></em></div>
+        <div class="metric"><span>CO ekwiwalent</span><b id="m-micsco">--</b><em>ppm</em></div>
+        <div class="metric"><span>Stan</span><b id="m-micsstate">--</b><em></em></div>
+        <div class="legend">
+          <div class="legend-item"><span class="sw" style="background:#00C853"></span> Rs/R0 ≥ 0,8 — czyste powietrze</div>
+          <div class="legend-item"><span class="sw" style="background:#FFD600"></span> Rs/R0 0,5–0,8 — gaz</div>
+          <div class="legend-item"><span class="sw" style="background:#E53935"></span> Rs/R0 &lt; 0,5 — dużo gazu</div>
+        </div>
+        <p class="hint"><b>Napięcie</b> = surowe wyjście A0 (niskie ≈ 0,01–0,1 V = czyste powietrze; rośnie przy gazie). <b>Rs/R0</b> = opór czujnika względem bazy (1,0 = czyste powietrze; spada, gdy jest gaz). <b>CO eq.</b> = orientacyjne stężenie CO (0 = czyste) — czujnik nieselektywny: alkohol/H₂ też podbija wynik.</p>
+      </div>
+
+      <div class="card">
+        <h2>MQ-7 (CO, ADS1115 AIN2)</h2>
+        <div class="metric"><span>Napięcie wyjścia</span><b id="m-mq7v">--</b><em>V</em></div>
+        <div class="metric"><span>Rs/R0 (opór czujnika)</span><b id="m-mq7rs">--</b><em></em></div>
+        <div class="metric"><span>CO</span><b id="m-mq7co">--</b><em>ppm</em></div>
+        <div class="legend">
+          <div class="legend-item"><span class="sw" style="background:#00C853"></span> CO 0–9 ppm — czyste</div>
+          <div class="legend-item"><span class="sw" style="background:#FFD600"></span> CO 10–35 ppm — podwyższone</div>
+          <div class="legend-item"><span class="sw" style="background:#FF9100"></span> CO 36–100 ppm — wysokie</div>
+          <div class="legend-item"><span class="sw" style="background:#E53935"></span> CO &gt;100 ppm — niebezpieczne</div>
+        </div>
+        <p class="hint"><b>Napięcie</b> = surowe wyjście A0. <b>Rs/R0</b> = opór czujnika względem bazy (1,0 = czyste powietrze; spada przy gazie). <b>CO</b> = orientacyjne stężenie tlenku węgla (0 = czyste powietrze). Wymaga kalibracji R0 i wygrzania 24–48 h dla pełnej dokładności.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- WYKRESY -->
+  <section id="tab-wykresy" class="tabpage">
+    <div class="grid">
+      <div class="card">
+        <h2>Pył zawieszony — ostatnie 12 h</h2>
+        <div class="chart-legend"><span class="lgd-i"><i class="sw" style="background:#FFD600"></i>PM2.5</span><span class="lgd-i"><i class="sw" style="background:#FF9100"></i>PM10</span></div>
+        <canvas id="chart-pm" width="600" height="200"></canvas>
+        <p class="hint">Wartości minutowe z bufora stacji (µg/m³).</p>
+      </div>
+      <div class="card">
+        <h2>Temperatura / Wilgotność — ostatnie 12 h</h2>
+        <div class="chart-legend"><span class="lgd-i"><i class="sw" style="background:#E53935"></i>Temperatura</span><span class="lgd-i"><i class="sw" style="background:#2ecc9a"></i>Wilgotność</span></div>
+        <canvas id="chart-th" width="600" height="200"></canvas>
+        <p class="hint">Temperatura (°C) i wilgotność (% RH) z DHT11.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILAMENT -->
+  <section id="tab-filament" class="tabpage">
+    <h2 class="section-title">Pojemniki na filament (16 × AHT20 przez węzeł Zigbee)</h2>
+    <div class="boxes" id="boxes"></div>
+  </section>
+
+  <!-- LED -->
+  <section id="tab-led" class="tabpage">
+    <div class="card wide">
+      <h2>Pasek LED RGBIC — legenda statusu powietrza</h2>
+      <div class="legend">
+        <div class="legend-item"><span class="sw" style="background:#00C853"></span> Zielony — powietrze dobre</div>
+        <div class="legend-item"><span class="sw" style="background:#FFD600"></span> Żółty — podwyższone (utrzymuje się)</div>
+        <div class="legend-item"><span class="sw" style="background:#E53935"></span> Czerwony — poważnie podwyższone</div>
+        <div class="legend-item"><span class="sw" style="background:#8E24AA"></span> Fioletowy — brak danych</div>
+        <div class="legend-item"><span class="sw" style="background:#FF0000"></span> Czerwony FLASH — alarm (gaz / awaria)</div>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="ledTest('00C853')">Test zielony</button>
+        <button class="btn" onclick="ledTest('FFD600')">Test żółty</button>
+        <button class="btn" onclick="ledTest('E53935')">Test czerwony</button>
+        <button class="btn" onclick="ledTest('8E24AA')">Test fioletowy</button>
+        <button class="btn" onclick="ledTest('000000')">Wyłącz</button>
+      </div>
+      <p class="hint">Kolor paska = ogólna jakość powietrza: 🟢 dobra, 🟡 podwyższone (utrzymuje się &gt;5 min), 🔴 poważnie podwyższone. Zmiana poziomu wymaga utrzymania warunku przez 5 minut (z histerezą), więc pojedynczy słabszy parametr nie powoduje migania. Czerwony FLASH = alarm (wykryty gaz MiCS / awaria czujników), widoczny zawsze.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Matryca LED 8×8 — efekty</h2>
+      <div class="form">
+        <label>Efekt
+          <select id="led-fx">
+            <option value="air">Powietrze (kolor jakości)</option>
+            <option value="rainbow">Tęcza</option>
+            <option value="breathe">Oddychanie</option>
+            <option value="comet">Kometa</option>
+            <option value="sparkle">Iskry</option>
+            <option value="scroll">Tekst (zegar / własny)</option>
+            <option value="level">Poziom (pasek jakości)</option>
+            <option value="num">Liczba (PM2.5)</option>
+            <option value="smiley">Buźka (jakość powietrza)</option>
+            <option value="aqi">Cyfry AQI</option>
+            <option value="matrix">Matrix Rain</option>
+            <option value="fire">Ogień</option>
+            <option value="plasma">Plasma</option>
+            <option value="bounce">Bouncing ball</option>
+            <option value="auto">Auto (czujniki)</option>
+            <option value="icons">Ikonki</option>
+          </select>
+        </label>
+        <label>Prędkość (1–10)<input id="led-fx-speed" type="number" min="1" max="10"></label>
+        <label>Jasność <span id="led-fx-bri-val">127</span>
+          <input id="led-fx-bri" type="range" min="1" max="255" value="127"
+                 oninput="document.getElementById('led-fx-bri-val').textContent=this.value"
+                 onchange="ledBriLive()">
+        </label>
+        <label>Kolejność kolorów
+          <select id="led-fx-order">
+            <option value="0">GRB (typowy WS2812B)</option>
+            <option value="1">RGB</option>
+            <option value="2">BGR</option>
+            <option value="3">BRG</option>
+            <option value="4">GBR</option>
+            <option value="5">RBG</option>
+          </select>
+        </label>
+        <label>Układ
+          <select id="led-fx-layout" onchange="ledOrientLive()">
+            <option value="0">Serpentine (zygzak)</option>
+            <option value="1">Progressive (wierszami)</option>
+          </select>
+        </label>
+        <label>Obrót
+          <select id="led-fx-rotate" onchange="ledOrientLive()">
+            <option value="0">0°</option>
+            <option value="1">90°</option>
+            <option value="2">180°</option>
+            <option value="3">270°</option>
+          </select>
+        </label>
+        <label class="check"><input id="led-fx-flipy" type="checkbox" onchange="ledOrientLive()"> Odbicie w pionie</label>
+        <label>Wielkość cyfr
+          <select id="led-fx-font" onchange="ledExtraLive()">
+            <option value="0">Mała (z etykietą)</option>
+            <option value="1">Duża (4×6)</option>
+          </select>
+        </label>
+        <label>Kolor wartości
+          <select id="led-fx-vcol" onchange="ledExtraLive()">
+            <option value="0">Auto (jakość powietrza)</option>
+            <option value="1">Biały</option>
+            <option value="2">Czerwony</option>
+            <option value="3">Zielony</option>
+            <option value="4">Niebieski</option>
+            <option value="5">Żółty</option>
+            <option value="6">Pomarańczowy</option>
+            <option value="7">Fioletowy</option>
+          </select>
+        </label>
+        <label>Własny tekst (tryb „Tekst")<input id="led-fx-text" type="text" maxlength="24" onchange="ledExtraLive()"></label>
+        <label>Test koloru
+          <input id="led-test-color" type="color" value="#00ff00" style="width:3.5em;padding:0">
+          <button class="btn" onclick="ledTestHex()">Pokaż 3 s</button>
+        </label>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="ledPreviewFx()">Podgląd</button>
+        <button class="btn primary" onclick="ledSaveFx()">Zastosuj i zapisz</button>
+      </div>
+      <p class="hint">Podgląd zmienia efekt od razu (bez zapisu). „Zastosuj i zapisz" zapisuje tryb, prędkość i kolejność kolorów do pamięci (przetrwa restart). Jeśli kolory są złe (np. zielony świeci na niebiesko) — zmień „Kolejność kolorów" i kliknij Podgląd. Tryb „Tekst" przewija zegar HH:MM (albo własny tekst ustawiony w Konfiguracji); alarm (czerwony flash) zawsze ma priorytet.</p>
+    </div>
+  </section>
+
+  <!-- KALIBRACJA -->
+  <section id="tab-kalibracja" class="tabpage">
+    <div class="card wide">
+      <h2>Kalibracja MiCS5524</h2>
+      <p>Postaw czujnik w <b>czystym powietrzu</b>, odczekaj ~15 min (wygrzanie grzałki), a potem zapisz R0.</p>
+      <div class="metric"><span>Aktualne napięcie</span><b id="cal-v">--</b><em>V</em></div>
+      <div class="metric"><span>Zapisane R0</span><b id="cal-r0">--</b><em>V</em></div>
+      <div class="metric"><span>Grzałka</span><b id="cal-heater">--</b><em></em></div>
+      <div class="row">
+        <button class="btn primary" id="cal-btn">Zapisz R0 = aktualne napięcie</button>
+        <button class="btn" id="heater-on-btn">Grzałka ON</button>
+        <button class="btn" id="heater-off-btn">Grzałka OFF</button>
+      </div>
+      <p class="hint">Grzałka jest sterowana pinem EN (GPIO11, aktywny niski). Test: wyłącz grzałkę na minutę, włącz i obserwuj, czy napięcie rośnie — to potwierdzi, że grzałka działa.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Kalibracja MQ-7</h2>
+      <p>Wygrzewaj MQ-7 <b>min. 24–48 h</b> w czystym powietrzu, potem zapisz R0.</p>
+      <div class="metric"><span>Aktualne napięcie</span><b id="cal-mq7-v">--</b><em>V</em></div>
+      <div class="metric"><span>Zapisane R0</span><b id="cal-mq7-r0">--</b><em>V</em></div>
+      <button class="btn primary" id="cal-mq7-btn">Zapisz R0 = aktualne napięcie</button>
+    </div>
+  </section>
+
+  <!-- KONFIGURACJA -->
+  <section id="tab-konfiguracja" class="tabpage">
+    <div class="card wide">
+      <h2>Sieć i MQTT / Home Assistant</h2>
+      <div class="form">
+        <label>Wi-Fi SSID<input id="cfg-wifi-ssid" type="text"></label>
+        <label>Wi-Fi hasło<input id="cfg-wifi-pass" type="password"></label>
+        <label>Nazwa hosta<input id="cfg-hostname" type="text"></label>
+        <label class="check"><input id="cfg-wifi-static" type="checkbox"> Stały adres IP</label>
+        <label>Adres IP<input id="cfg-wifi-ip" type="text" placeholder="192.168.1.141"></label>
+        <label>Maska podsieci<input id="cfg-wifi-mask" type="text" placeholder="255.255.255.0"></label>
+        <label>Brama<input id="cfg-wifi-gw" type="text" placeholder="192.168.1.1"></label>
+        <label>DNS<input id="cfg-wifi-dns" type="text" placeholder="192.168.1.1"></label>
+        <label>MQTT broker (IP)<input id="cfg-mqtt-host" type="text"></label>
+        <label>MQTT port<input id="cfg-mqtt-port" type="number"></label>
+        <label>MQTT użytkownik<input id="cfg-mqtt-user" type="text"></label>
+        <label>MQTT hasło/token<input id="cfg-mqtt-pass" type="password"></label>
+        <label>Prefix tematów<input id="cfg-mqtt-prefix" type="text"></label>
+        <label>Temat Z2M pojemników<input id="cfg-z2m" type="text"></label>
+        <label>HA adres (URL)<input id="cfg-ha-url" type="text" placeholder="http://192.168.1.14:8123"></label>
+        <label>HA token (długoterminowy)<input id="cfg-ha-token" type="password"></label>
+        <label>HA entity — temperatura<input id="cfg-ha-temp" type="text"></label>
+        <label>HA entity — wilgotność<input id="cfg-ha-hum" type="text"></label>
+        <label class="check"><input id="cfg-air-en" type="checkbox"> Wysyłka JSON powietrza (dla stacji pogodowej)</label>
+        <label>Temat JSON powietrza<input id="cfg-air-topic" type="text"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="saveConfig()">Zapisz</button>
+        <button class="btn" onclick="testMqtt()">Testuj MQTT</button>
+        <button class="btn danger" onclick="reboot()">Restart</button>
+      </div>
+      <p class="hint">Zmiana Wi-Fi obowiązuje po restarcie. Discovery pojawi się w HA automatycznie (broker MQTT + Mosquitto).</p>
+    </div>
+
+    <div class="card wide">
+      <h2>LED — pasek / matryca 8×8</h2>
+      <div class="form">
+        <label class="check"><input id="cfg-led-matrix" type="checkbox"> Matryca 8×8 (zamiast paska)</label>
+        <label>Liczba diod (pasek)<input id="cfg-led-count" type="number"></label>
+        <label>Jasność (0–255)<input id="cfg-led-bri" type="number"></label>
+        <label>Limit prądu (mA)<input id="cfg-led-ma" type="number"></label>
+        <label>Efekt
+          <select id="cfg-led-mode">
+            <option value="0">Powietrze (kolor jakości)</option>
+            <option value="1">Tęcza</option>
+            <option value="2">Oddychanie</option>
+            <option value="3">Kometa</option>
+            <option value="4">Iskry</option>
+            <option value="5">Tekst</option>
+            <option value="6">Poziom (pasek jakości)</option>
+            <option value="7">Liczba (PM2.5)</option>
+            <option value="8">Buźka (jakość powietrza)</option>
+            <option value="9">Cyfry AQI</option>
+            <option value="10">Matrix Rain</option>
+            <option value="11">Ogień</option>
+            <option value="12">Plasma</option>
+            <option value="13">Bouncing ball</option>
+            <option value="14">Auto (czujniki)</option>
+            <option value="15">Ikonki</option>
+          </select>
+        </label>
+        <label>Prędkość efektu (1–10)<input id="cfg-led-speed" type="number" min="1" max="10"></label>
+        <label>Układ matrycy
+          <select id="cfg-led-layout">
+            <option value="0">Serpentine (zygzak)</option>
+            <option value="1">Progressive (wierszami)</option>
+          </select>
+        </label>
+        <label>Obrót matrycy
+          <select id="cfg-led-rotate">
+            <option value="0">0°</option>
+            <option value="1">90°</option>
+            <option value="2">180°</option>
+            <option value="3">270°</option>
+          </select>
+        </label>
+        <label class="check"><input id="cfg-led-flipy" type="checkbox"> Odbicie w pionie (matryca do góry nogami)</label>
+        <label class="check"><input id="cfg-led-always-on" type="checkbox"> Zawsze włączona (ignoruj ruch PIR)</label>
+        <label>Tekst przewijany (pusty = zegar HH:MM)<input id="cfg-led-text" type="text" maxlength="24"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="saveConfig()">Zapisz</button>
+        <button class="btn" onclick="downloadBackup()">Pobierz kopię ustawień</button>
+      </div>
+      <p class="hint">Przy matrycy 8×8 liczba diod jest stała (64). Efekty wybierasz też w zakładce „LED RGBIC". Tryb „Powietrze" zachowuje kolory jakości (zielony/żółty/czerwony) i alarm (czerwony flash). Wilgotność NIE steruje kolorem.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Korekcja wilgotności PM</h2>
+      <div class="form">
+        <label class="check"><input id="cfg-pm-rh-corr" type="checkbox"> Korekcja wilgotności PM (zewn. RH)</label>
+        <label>Próg RH korekcji [%]<input id="cfg-pm-rh-thresh" type="number" step="0.5" min="40" max="99"></label>
+        <label>Współczynnik korekcji<input id="cfg-pm-rh-coef" type="number" step="0.05" min="0" max="2"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="saveConfig()">Zapisz</button>
+      </div>
+      <p class="hint">Korekcja wilgotności dotyczy pomiaru PM2.5/PM10 (czujnik optyczny zawyża przy wysokim RH) — nie paska LED.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Ruch (PIR)</h2>
+      <div class="form">
+        <label class="check"><input id="cfg-pir-en" type="checkbox"> PIR włączony</label>
+        <label class="check"><input id="cfg-pir-inv" type="checkbox"> Odwrócona polaryzacja (aktywny niski)</label>
+        <label>Czas podtrzymania detekcji [s]<input id="cfg-pir-hold" type="number" min="5" max="600"></label>
+        <label>Min. długość impulsu (debounce) [ms]<input id="cfg-pir-deb" type="number" min="0" max="5000"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="saveConfig()">Zapisz</button>
+      </div>
+      <p class="hint">Stan wejścia PIR (na żywo): <b id="pir-live">--</b></p>
+      <p class="hint">Podtrzymanie = jak długo po wykryciu ruchu pasek LED świeci jaśniej i status pokazuje „ruch". Debounce = ignoruj krótkie szpilki (zakłócenia) na wejściu PIR. Zasięg i czułość SR505 są ustawiane sprzętowo (SR505 nie ma potencjometrów) — w razie potrzeby wymień na HC-SR501, który ma regulację zasięgu i czasu.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Pojemniki — opis i wilgotność docelowa</h2>
+      <p class="hint">Dla każdego pojemnika ustaw nazwę, rodzaj filamentu, kolor, producenta i wilgotność docelową z karty produktu. Po zmianie rodzaju wartość RH wypełni się sugerowaną wartością — popraw ją, jeśli producent podaje inną.</p>
+      <label class="check"><input id="cfg-box-meta" type="checkbox"> Aktualizuj opisy (typ/kolor/producent) z węzła Zigbee</label>
+      <div id="box-cfg" class="boxcfg-grid"></div>
+    </div>
+
+    <div class="card wide danger-zone">
+      <h2>Strefa niebezpieczna</h2>
+      <button class="btn danger" onclick="factoryReset()">Przywróć ustawienia fabryczne</button>
+    </div>
+  </section>
+
+  <!-- LOGI -->
+  <section id="tab-logi" class="tabpage">
+    <div class="card wide">
+      <h2>Logi</h2>
+      <div class="row">
+        <button class="btn" onclick="refreshLog()">Odśwież</button>
+        <button class="btn" onclick="clearLog()">Wyczyść</button>
+      </div>
+      <pre id="log">…</pre>
+    </div>
+
+    <div class="card wide">
+      <h2>Karta SD — pliki CSV</h2>
+      <div class="row">
+        <button class="btn" onclick="refreshSd()">Odśwież listę</button>
+      </div>
+      <div id="sd-files" class="sd-files"><p class="hint">Ładowanie…</p></div>
+    </div>
+  </section>
+
+  <!-- DIAGNOSTYKA -->
+  <section id="tab-diagnostyka" class="tabpage">
+    <div class="card wide">
+      <h2>Diagnostyka systemu</h2>
+      <div class="metric"><span>Firmware</span><b id="diag-fw">--</b><em></em></div>
+      <div class="metric"><span>Wersja</span><b id="diag-ver">--</b><em></em></div>
+      <div class="metric"><span>Build</span><b id="diag-build">--</b><em></em></div>
+      <div class="metric"><span>Uptime</span><b id="diag-uptime">--</b><em></em></div>
+      <div class="metric"><span>Powód ostatniego restartu</span><b id="diag-reset">--</b><em></em></div>
+      <div class="metric"><span>Heap / PSRAM wolne</span><b id="diag-mem">--</b><em></em></div>
+      <div class="metric"><span>WiFi (IP, RSSI)</span><b id="diag-wifi">--</b><em></em></div>
+      <div class="metric"><span>MAC</span><b id="diag-mac">--</b><em></em></div>
+      <div class="metric"><span>MQTT / SD</span><b id="diag-mqttsd">--</b><em></em></div>
+      <div class="metric"><span>Czujniki aktywne</span><b id="diag-ch">--</b><em></em></div>
+      <div class="metric"><span>LittleFS</span><b id="diag-fs">--</b><em></em></div>
+      <div class="row"><button class="btn" onclick="refreshDiag()">Odśwież</button></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Aktualizacja firmware (OTA z przeglądarki)</h2>
+      <p class="hint">Wybierz plik <b>firmware.bin</b> (z folderu <code>.pio/build/esp32s3/</code>) i kliknij „Wgraj". Urządzenie samo się zrestartuje po wgraniu.</p>
+      <div class="row">
+        <input type="file" id="ota-file" accept=".bin">
+        <button class="btn primary" id="ota-btn">Wgraj firmware</button>
+      </div>
+      <div id="ota-status" class="hint"></div>
+    </div>
+  </section>
+</main>
+
+<footer>Stacja Powietrza v<span id="ver">?</span> · ESP32-S3 N16R8 · <span id="foot-sys">…</span></footer>
+<script src="app.js"></script>
+</body>
+</html>
