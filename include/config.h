@@ -20,6 +20,7 @@
 
 // --- Zewnetrzny czujnik temp/wilgotnosci z Home Assistant (REST) ----------------
 #define HA_POLL_MS          60000    // odczyt zewnetrznego czujnika HA co 60 s
+#define HA_PRESENCE_POLL_MS 10000    // odczyt czujnika obecnosci (binary_sensor) co 10 s
 
 // --- Korekcja wilgotnosci PM (czujnik optyczny zawyza przy wysokim RH) ---------
 // PM_corr = PM_raw / (1 + coef * (RH - prog) / (100 - prog)), dla RH > prog.
@@ -34,9 +35,10 @@
 
 // --- Pasek LED / matryca LED 8x8 (64 diody WS2812B) -----------------------------
 #define LED_COUNT_DEFAULT   64      // matryca 8x8; przy pasku ustaw na stronie
-#define LED_BRIGHT_DEFAULT  127     // 50% - domyslna jasnosc
-#define LED_BRIGHT_MAX      127     // twardy limit 50% jasnosci (0..255)
-#define LED_MAX_MA_DEFAULT  2000    // limit pradu (mA) - pozwala osiagnac 50% na 64 diodach
+#define LED_BRIGHT_DEFAULT  76      // 30% - domyslna jasnosc
+#define LED_BRIGHT_MAX      76      // twardy limit 30% jasnosci w dzien (0..255)
+#define LED_BRIGHT_NIGHT_MAX 38     // twardy limit 15% jasnosci w nocy (0..255)
+#define LED_MAX_MA_DEFAULT  2000    // limit pradu (mA) - pozwala osiagnac limity na 64 diodach
 
 // --- Progi jakosci powietrza (kolory paska) ------------------------------------
 // AQI US EPA (z PM2.5):

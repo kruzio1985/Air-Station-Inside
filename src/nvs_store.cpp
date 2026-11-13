@@ -17,7 +17,7 @@ String cfgWifiDns    = "192.168.1.1";
 
 String cfgMqttHost   = "192.168.1.14";   // broker HA (Mosquitto) - jak panel Guiton 4
 int    cfgMqttPort   = MQTT_PORT_DEFAULT;
-String cfgMqttUser   = "";
+String cfgMqttUser   = "";           // z SEKRETY: monitoring_glances_mqtt.txt
 String cfgMqttPass   = "";
 String cfgMqttPrefix = MQTT_PREFIX_DEFAULT;
 String cfgZ2mTopic   = Z2M_TOPIC_DEFAULT;
@@ -27,6 +27,8 @@ String cfgHaUrl        = "http://192.168.1.14:8123";
 String cfgHaToken      = "";
 String cfgHaTempEntity = "sensor.temperature_humidity_sensor_5_temperatura";
 String cfgHaHumEntity  = "sensor.temperature_humidity_sensor_5_wilgotnosc";
+String cfgHaPresenceEntity = "binary_sensor.czujnik_obecnosci_obecnosc";
+bool   cfgPresenceLed  = false;
 
 bool   cfgAirEnabled  = true;
 String cfgAirTopic    = "stacja_powietrza/air";
@@ -134,6 +136,8 @@ void nvs_begin() {
     cfgHaToken       = prefs.getString("ha_token", cfgHaToken);
     cfgHaTempEntity  = prefs.getString("ha_temp",  cfgHaTempEntity);
     cfgHaHumEntity   = prefs.getString("ha_hum",   cfgHaHumEntity);
+    cfgHaPresenceEntity = prefs.getString("ha_pres", cfgHaPresenceEntity);
+    cfgPresenceLed   = prefs.getBool("pres_led",   cfgPresenceLed);
 
     cfgAirEnabled    = prefs.getBool("air_en",    cfgAirEnabled);
     cfgAirTopic      = prefs.getString("air_topic", cfgAirTopic);
@@ -207,6 +211,8 @@ void nvs_save() {
     prefs.putString("ha_token", cfgHaToken);
     prefs.putString("ha_temp",  cfgHaTempEntity);
     prefs.putString("ha_hum",   cfgHaHumEntity);
+    prefs.putString("ha_pres",  cfgHaPresenceEntity);
+    prefs.putBool("pres_led",   cfgPresenceLed);
     prefs.putBool("air_en",     cfgAirEnabled);
     prefs.putString("air_topic", cfgAirTopic);
     prefs.putInt("led_cnt",   cfgLedCount);
@@ -254,6 +260,8 @@ void nvs_factory_reset() {
     cfgHaUrl = "http://192.168.1.14:8123"; cfgHaToken = "";
     cfgHaTempEntity = "sensor.temperature_humidity_sensor_5_temperatura";
     cfgHaHumEntity  = "sensor.temperature_humidity_sensor_5_wilgotnosc";
+    cfgHaPresenceEntity = "binary_sensor.czujnik_obecnosci_obecnosc";
+    cfgPresenceLed = false;
     cfgAirEnabled = true; cfgAirTopic = "stacja_powietrza/air";
     cfgLedCount = LED_COUNT_DEFAULT; cfgLedBrightness = LED_BRIGHT_DEFAULT; cfgLedMaxMa = LED_MAX_MA_DEFAULT;
     cfgLedMatrix = true; cfgLedMode = 0; cfgLedSpeed = 5; cfgLedLayout = 0; cfgLedRotate = 0;
@@ -291,6 +299,8 @@ String nvs_export_json() {
     doc["ha_token"]      = cfgHaToken;
     doc["ha_temp_entity"] = cfgHaTempEntity;
     doc["ha_hum_entity"]  = cfgHaHumEntity;
+    doc["ha_presence_entity"] = cfgHaPresenceEntity;
+    doc["presence_led"]   = cfgPresenceLed;
     doc["air_enabled"] = cfgAirEnabled;
     doc["air_topic"]   = cfgAirTopic;
     doc["led_count"]  = cfgLedCount;
@@ -356,6 +366,8 @@ bool nvs_import_json(const String& json) {
     if (doc["ha_token"].is<const char*>())       cfgHaToken = doc["ha_token"].as<const char*>();
     if (doc["ha_temp_entity"].is<const char*>()) cfgHaTempEntity = doc["ha_temp_entity"].as<const char*>();
     if (doc["ha_hum_entity"].is<const char*>())  cfgHaHumEntity = doc["ha_hum_entity"].as<const char*>();
+    if (doc["ha_presence_entity"].is<const char*>()) cfgHaPresenceEntity = doc["ha_presence_entity"].as<const char*>();
+    if (doc["presence_led"].is<bool>())          cfgPresenceLed = doc["presence_led"].as<bool>();
     if (doc["air_enabled"].is<bool>())         cfgAirEnabled = doc["air_enabled"].as<bool>();
     if (doc["air_topic"].is<const char*>())    cfgAirTopic = doc["air_topic"].as<const char*>();
     if (doc["led_count"].is<int>())          cfgLedCount = doc["led_count"].as<int>();

@@ -27,6 +27,8 @@ extern String cfgHaUrl;         // np. http://192.168.1.14:8123
 extern String cfgHaToken;       // token dlugoterminowy HA (pusty = wylaczone)
 extern String cfgHaTempEntity;  // entity temperatura (czujnik zewnetrzny)
 extern String cfgHaHumEntity;   // entity wilgotnosc (czujnik zewnetrzny)
+extern String cfgHaPresenceEntity; // entity obecnosci (binary_sensor on/off)
+extern bool   cfgPresenceLed;   // true = LED swieci tylko przy obecnosci
 
 extern bool   cfgAirEnabled;    // publikacja zbiorczego JSON jakosci powietrza
 extern String cfgAirTopic;      // temat JSON dla stacji pogodowej

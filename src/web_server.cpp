@@ -10,6 +10,7 @@
 #include "wifi_mgr.h"
 #include "led_strip.h"
 #include "drv_ads1115.h"
+#include "drv_ha.h"
 #include "aqi.h"
 #include "agg.h"
 #include <LittleFS.h>
@@ -125,6 +126,8 @@ static String apiStatusJson() {
     d["sd"] = sd_ready();
     d["pir_raw"] = pir_raw_level();
     d["mics_heater"] = ads_heater_on() ? 1 : 0;
+    d["presence"] = ha_presence() ? 1 : 0;
+    d["presence_led"] = cfgPresenceLed ? 1 : 0;
     d["led_mode"] = led_current_mode();
     d["led_speed"] = led_current_speed();
     d["led_mode_name"] = led_mode_name(led_current_mode());

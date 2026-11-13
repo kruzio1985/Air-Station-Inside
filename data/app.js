@@ -299,6 +299,8 @@ function fillConfig(c) {
   $('cfg-ha-token').value = c.ha_token || '';
   $('cfg-ha-temp').value = c.ha_temp_entity || '';
   $('cfg-ha-hum').value = c.ha_hum_entity || '';
+  $('cfg-ha-pres').value = c.ha_presence_entity || 'binary_sensor.czujnik_obecnosci_obecnosc';
+  $('cfg-pres-led').checked = !!c.presence_led;
   $('cfg-air-en').checked = !!c.air_enabled;
   $('cfg-air-topic').value = c.air_topic || '';
   $('cfg-pm-rh-corr').checked = !!c.pm_rh_corr;
@@ -325,8 +327,8 @@ function fillConfig(c) {
   $('led-fx-layout').value = (c.led_layout != null) ? c.led_layout : 0;
   $('led-fx-rotate').value = (c.led_rotate != null) ? c.led_rotate : 0;
   $('led-fx-flipy').checked = !!c.led_flip_y;
-  $('led-fx-bri').value = (c.led_brightness != null) ? c.led_brightness : 127;
-  $('led-fx-bri-val').textContent = $('led-fx-bri').value;
+  $('led-fx-bri').value = Math.round(((c.led_brightness != null ? c.led_brightness : 76) * 100) / 255);
+  $('led-fx-bri-val').textContent = $('led-fx-bri').value + '%';
   $('cfg-box-meta').checked = (c.box_meta_from_node == null) ? true : !!c.box_meta_from_node;
   $('cfg-pir-en').checked = !!c.pir_enabled;
   $('cfg-pir-inv').checked = !!c.pir_inverted;
@@ -367,6 +369,8 @@ async function saveConfig() {
     ha_token: $('cfg-ha-token').value,
     ha_temp_entity: $('cfg-ha-temp').value,
     ha_hum_entity: $('cfg-ha-hum').value,
+    ha_presence_entity: $('cfg-ha-pres').value,
+    presence_led: $('cfg-pres-led').checked,
     air_enabled: $('cfg-air-en').checked,
     air_topic: $('cfg-air-topic').value,
     pm_rh_corr: $('cfg-pm-rh-corr').checked,
@@ -461,7 +465,8 @@ async function ledSetFx(effect, speed, order, brightness, save) {
 }
 
 function ledBriLive() {
-  const b = parseInt($('led-fx-bri').value) || 127;
+  const pct = parseInt($('led-fx-bri').value) || 0;
+  const b = Math.round(pct * 2.55);   // 0-100% -> 0-255
   fetch('/api/led', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -501,15 +506,36 @@ function ledTestHex() {
 }
 
 function ledPreviewFx() {
+  const pct = parseInt($('led-fx-bri').value) || 0;
   ledSetFx($('led-fx').value, parseInt($('led-fx-speed').value) || 5,
            parseInt($('led-fx-order').value) || 0,
-           parseInt($('led-fx-bri').value) || 127, false);
+           Math.round(pct * 2.55), false);
 }
 
 async function ledSaveFx() {
-  await ledSetFx($('led-fx').value, parseInt($('led-fx-speed').value) || 5,
-                 parseInt($('led-fx-order').value) || 0,
-                 parseInt($('led-fx-bri').value) || 127, true);
+  const pct = parseInt($('led-fx-bri').value) || 0;
+  let r;
+  try {
+    r = await fetch('/api/led', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        effect: $('led-fx').value,
+        speed: parseInt($('led-fx-speed').value) || 5,
+        order: parseInt($('led-fx-order').value) || 0,
+        brightness: Math.round(pct * 2.55),
+        layout: parseInt($('led-fx-layout').value) || 0,
+        rotate: parseInt($('led-fx-rotate').value) || 0,
+        flip_y: $('led-fx-flipy').checked,
+        font: parseInt($('led-fx-font').value) || 0,
+        value_color: parseInt($('led-fx-vcol').value) || 0,
+        text: $('led-fx-text').value || '',
+        save: true
+      })
+    });
+  } catch (e) { alert('Błąd: brak połączenia ze stacją.'); return; }
+  if (r.ok) alert('✅ Zapisano ustawienia LED (jasność ' + pct + '%).');
+  else alert('❌ Błąd zapisu: ' + (await r.text()));
   await loadConfig();
 }
 

@@ -1,6 +1,7 @@
 #pragma once
-// Zewnetrzny czujnik temperatury/wilgotnosci z Home Assistant (REST API).
-// Odczyt co HA_POLL_MS (domyslnie 60 s) - entity i token w konfiguracji.
+// Zewnetrzne czujniki z Home Assistant (REST API):
+//  - temperatura/wilgotnosc (odczyt co HA_POLL_MS),
+//  - czujnik obecnosci (binary_sensor, odczyt co HA_PRESENCE_POLL_MS).
 #include <Arduino.h>
 
 struct HaData {
@@ -13,3 +14,7 @@ struct HaData {
 void  ha_begin();
 void  ha_loop();
 HaData ha_get();
+
+// Obecnosc z HA. Zwraca true gdy czujnik "on" (lub gdy obsluga wylaczona).
+// Przy braku odczytu (unavailable) zwraca true, zeby nie gasic LED blednie.
+bool  ha_presence();

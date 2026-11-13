@@ -240,9 +240,9 @@
           </select>
         </label>
         <label>Prędkość (1–10)<input id="led-fx-speed" type="number" min="1" max="10"></label>
-        <label>Jasność <span id="led-fx-bri-val">127</span>
-          <input id="led-fx-bri" type="range" min="1" max="255" value="127"
-                 oninput="document.getElementById('led-fx-bri-val').textContent=this.value"
+        <label>Jasność <span id="led-fx-bri-val">30%</span>
+          <input id="led-fx-bri" type="range" min="0" max="100" value="30"
+                 oninput="document.getElementById('led-fx-bri-val').textContent=this.value+'%'"
                  onchange="ledBriLive()">
         </label>
         <label>Kolejność kolorów
@@ -350,6 +350,8 @@
         <label>HA token (długoterminowy)<input id="cfg-ha-token" type="password"></label>
         <label>HA entity — temperatura<input id="cfg-ha-temp" type="text"></label>
         <label>HA entity — wilgotność<input id="cfg-ha-hum" type="text"></label>
+        <label>HA entity — obecność (binary_sensor)<input id="cfg-ha-pres" type="text" placeholder="binary_sensor.czujnik_obecnosci_obecnosc"></label>
+        <label class="check"><input id="cfg-pres-led" type="checkbox"> LED świeci tylko przy obecności</label>
         <label class="check"><input id="cfg-air-en" type="checkbox"> Wysyłka JSON powietrza (dla stacji pogodowej)</label>
         <label>Temat JSON powietrza<input id="cfg-air-topic" type="text"></label>
       </div>

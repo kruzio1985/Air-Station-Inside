@@ -11,6 +11,7 @@
 #include "nvs_store.h"
 #include "sensors.h"
 #include "aqi.h"
+#include "drv_ha.h"
 #include "syslog.h"
 #include <FastLED.h>
 #include <time.h>
@@ -186,6 +187,7 @@ static int      s_labelX  = MATRIX_W;   // pozycja przewijanej etykiety
 static void led_clear();
 static void led_show();
 static void draw_big_glyph(char ch, int gx, CRGB color);
+static uint8_t led_base();
 
 // --- Mapowanie XY (matryca) -----------------------------------------------------
 static int led_idx(int x, int y) {
@@ -258,7 +260,7 @@ void led_apply_settings() {
         // Zmiana liczby diod bez restartu.
         s_controller->setLeds(s_out, s_ledCount);
     }
-    FastLED.setBrightness(led_eff_brightness());
+    FastLED.setBrightness(255);
     led_clear();
     led_show();
 }
@@ -283,11 +285,17 @@ static void led_clear() {
     memset(leds, 0, s_ledCount * sizeof(CRGB));
 }
 
-// Przekopiuj leds[] do bufora wyjsciowego z przelozona kolejnoscia kolorow
-// i wyslij. Rysowanie zawsze odbywa sie na leds[] (poprawny RGB).
+// Przekopiuj leds[] do bufora wyjsciowego z recznym skalowaniem jasnosci
+// (nie polegamy na FastLED.setBrightness, ktore bywa nieskuteczne) i
+// z przelozona kolejnoscia kolorow. Rysowanie odbywa sie na leds[] (RGB).
 static void led_show() {
+    uint8_t br = led_base();
     for (int i = 0; i < s_ledCount; i++) {
-        const CRGB& c = leds[i];
+        CRGB c = leds[i];
+        // reczne skalowanie (niezalezne od FastLED.setBrightness)
+        c.r = (uint8_t)(((uint16_t)c.r * br) >> 8);
+        c.g = (uint8_t)(((uint16_t)c.g * br) >> 8);
+        c.b = (uint8_t)(((uint16_t)c.b * br) >> 8);
         switch (cfgLedOrder) {
             case 1: s_out[i] = CRGB(c.g, c.r, c.b); break; // RGB
             case 2: s_out[i] = CRGB(c.g, c.b, c.r); break; // BGR
@@ -297,16 +305,27 @@ static void led_show() {
             default: s_out[i] = c; break;                 // GRB
         }
     }
+    static uint32_t lastDbg = 0;
+    if (millis() - lastDbg > 5000) {
+        lastDbg = millis();
+        uint8_t mx = 0;
+        for (int i = 0; i < s_ledCount; i++) {
+            if (s_out[i].r > mx) mx = s_out[i].r;
+            if (s_out[i].g > mx) mx = s_out[i].g;
+            if (s_out[i].b > mx) mx = s_out[i].b;
+        }
+        LOG_I("LED dbg: br=%u max=%u (n=%d)", br, mx, s_ledCount);
+    }
     FastLED.show();
 }
 
 static void fill_rgb(uint32_t c, uint8_t bright) {
+    (void)bright;
     if (!s_initialized || s_ledCount == 0) return;
     uint8_t r = (c >> 16) & 0xFF;
     uint8_t g = (c >> 8)  & 0xFF;
     uint8_t b = (c >> 0)  & 0xFF;
     fill_solid(leds, s_ledCount, CRGB(r, g, b));
-    FastLED.setBrightness(bright);
     led_show();
 }
 
@@ -315,6 +334,14 @@ static bool is_night() {
     if (!getLocalTime(&t, 100)) return false;
     int h = t.tm_hour;
     return (h >= 22 || h < 6);
+}
+
+// Bazowa jasnosc z limitami: dzien max 30%, noc max 15%.
+static uint8_t led_base() {
+    uint8_t b = led_eff_brightness();
+    uint8_t max = is_night() ? LED_BRIGHT_NIGHT_MAX : LED_BRIGHT_MAX;
+    if (b > max) b = max;
+    return b;
 }
 
 // --- Progi koloru powietrza ----------------------------------------------------
@@ -372,8 +399,7 @@ static uint32_t current_air_color() {
 
 // --- Tryb: kolor jakosci powietrza (histereza 5 min + ruch) ---------------------
 static void air_quality_frame(uint32_t now) {
-    uint8_t full = led_eff_brightness();
-    uint8_t base = is_night() ? full / 2 : full;
+    uint8_t base = led_base();
 
     Channel* pm25c = channel_find("pm25");
     Channel* pm10c = channel_find("pm10");
@@ -437,7 +463,7 @@ static void rainbow_frame(uint8_t base, int sp) {
     s_lastFx = now;
     fill_rainbow(leds, s_ledCount, s_hue, 7);
     s_hue += 2;
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -464,7 +490,7 @@ static void comet_frame(uint8_t base, int sp) {
     leds[head] = CHSV(s_hue, 255, 255);
     s_hue += 4;
     s_cometPos += sp;
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -475,7 +501,7 @@ static void sparkle_frame(uint8_t base, int sp) {
     fadeToBlackBy(leds, s_ledCount, 60);
     int n = 1 + sp / 3;
     for (int i = 0; i < n; i++) leds[random(s_ledCount)] = CHSV(random8(), 255, 255);
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -661,14 +687,14 @@ static void scroll_frame(uint8_t base, int sp) {
     for (unsigned i = 0; i < txt.length(); i++) {
         char c = txt[i];
         if (c >= 'a' && c <= 'z') c -= ('a' - 'A');
-        draw_glyph(font_glyph(c), x, CRGB::White);
+        draw_glyph(font_glyph(c), x, CRGB(255, 0, 0));
         x += 4;
     }
 
     s_scrollX--;
     if (s_scrollX < -w) s_scrollX = MATRIX_W;
 
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -695,7 +721,7 @@ static void level_frame(uint8_t base, int sp) {
             }
         }
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -756,7 +782,7 @@ static void num_frame(uint8_t base, int sp) {
         s_lastFx = now;
         led_clear();
         draw_value(v, led_value_color());   // duza 4x6
-        FastLED.setBrightness(base);
+        (void)base;
         led_show();
         return;
     }
@@ -767,9 +793,9 @@ static void num_frame(uint8_t base, int sp) {
     if (now - s_lastFx < iv) return;
     s_lastFx = now;
     led_clear();
-    if (showLabel) draw_label5("PM", CRGB::White);
+    if (showLabel) draw_label5("PM", CRGB(255, 0, 0));
     else           draw_value5(v, led_value_color());
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -805,7 +831,7 @@ static void smiley_frame(uint8_t base, int sp) {
             }
         }
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -821,7 +847,7 @@ static void aqi_frame(uint8_t base, int sp) {
         s_lastFx = now;
         led_clear();
         draw_value(score, led_value_color());   // duza 4x6
-        FastLED.setBrightness(base);
+        (void)base;
         led_show();
         return;
     }
@@ -832,9 +858,9 @@ static void aqi_frame(uint8_t base, int sp) {
     if (now - s_lastFx < iv) return;
     s_lastFx = now;
     led_clear();
-    if (showLabel) draw_label5("IAQ", CRGB::White);
+    if (showLabel) draw_label5("IAQ", CRGB(255, 0, 0));
     else           draw_value5(score, led_value_color());
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -867,7 +893,7 @@ static void matrix_frame(uint8_t base, int sp) {
         int idx = led_idx(x, 0);
         leds[idx] = (random(100) < 15) ? CRGB(0, 255, 0) : CRGB(0, 0, 0);
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -902,7 +928,7 @@ static void fire_frame(uint8_t base, int sp) {
         else if (h < 180) leds[i] = CRGB(255, (h - 140) * 6, 0);
         else              leds[i] = CRGB(255, 255, (h - 180) * 3);
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -919,7 +945,7 @@ static void plasma_frame(uint8_t base, int sp) {
             leds[led_idx(x, y)] = CHSV(v + 96, 255, 255);
         }
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -934,7 +960,7 @@ static void bounce_frame(uint8_t base, int sp) {
     bx += dx; by += dy;
     if (bx <= 0 || bx >= MATRIX_W - 1) { dx = -dx; s_hue += 32; }
     if (by <= 0 || by >= MATRIX_H - 1) { dy = -dy; s_hue += 32; }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -951,7 +977,7 @@ static void icons_frame(uint8_t base, int sp) {
     }
     led_clear();
     draw_bitmap(ICONS[s_iconIdx], CHSV(s_hue, 255, 255));
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -981,7 +1007,7 @@ static void auto_frame(uint8_t base, int sp) {
                 snprintf(b, sizeof(b), "%02d:%02d", t.tm_hour, t.tm_min);
                 int w = text_width(b);
                 int x = s_scrollX;
-                for (char* p = b; *p; p++) { draw_glyph(font_glyph(*p), x, CRGB::White); x += 4; }
+                for (char* p = b; *p; p++) { draw_glyph(font_glyph(*p), x, CRGB(255, 0, 0)); x += 4; }
                 s_scrollX--;
                 if (s_scrollX < -w) s_scrollX = MATRIX_W;
             } else {
@@ -1009,7 +1035,7 @@ static void auto_frame(uint8_t base, int sp) {
             case 6: draw_2digits(hh && hh->valid ? (int)(hh->value + 0.5f) : -1, cc); break;
         }
     }
-    FastLED.setBrightness(base);
+    (void)base;
     led_show();
 }
 
@@ -1028,13 +1054,23 @@ void led_loop() {
 
     // Alarm (gaz / awaria czujnikow) - czerwony flash ZAWSZE, niezaleznie od trybu.
     if (air_alarm_active()) {
-        uint8_t base = is_night() ? led_eff_brightness() / 2 : led_eff_brightness();
+        uint8_t base = led_base();
         bool on = ((now / 500) % 2) == 0;
         fill_rgb(0xFF0000, on ? base : 0);
         return;
     }
 
-    uint8_t base = is_night() ? led_eff_brightness() / 2 : led_eff_brightness();
+    // Obecnosc (HA): brak obecnosci = LED wygaszona (alarm powyzej ma priorytet).
+    if (cfgPresenceLed && !ha_presence()) {
+        if (now - s_lastFx >= 1000) {
+            s_lastFx = now;
+            led_clear();
+            led_show();
+        }
+        return;
+    }
+
+    uint8_t base = led_base();
     int sp = s_speed >= 1 ? s_speed : 5;
 
     switch (s_mode) {
@@ -1073,7 +1109,7 @@ void led_test_dots(uint16_t ms) {
     if (s_ledCount > 7)  leds[7]  = CRGB(0, 255, 0);
     if (s_ledCount > 8)  leds[8]  = CRGB(0, 0, 255);
     if (s_ledCount > 63) leds[63] = CRGB(255, 255, 255);
-    FastLED.setBrightness(led_eff_brightness());
+    FastLED.setBrightness(255);
     led_show();
     s_dotsUntil = millis() + ms;
     LOG_I("LED: diagnostyka 4 diod (%u ms)", ms);
@@ -1108,9 +1144,9 @@ void led_set_brightness(int b, bool save) {
     if (b > 255) b = 255;
     cfgLedBrightness = b;
     if (save) nvs_save();
-    FastLED.setBrightness(led_eff_brightness());
+    FastLED.setBrightness(255);
     led_show();
-    LOG_I("LED: jasnosc %d (efekt. %d)%s", b, led_eff_brightness(), save ? " - zapisano" : "");
+    LOG_I("LED: jasnosc %d (efekt. %d)%s", b, led_base(), save ? " - zapisano" : "");
 }
 
 const char* led_mode_name(int mode) {
