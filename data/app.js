@@ -47,7 +47,7 @@ function aqiStyle(aqi) {
 function pm25Color(v) { return v <= 10 ? '#00C853' : v <= 20 ? '#76FF03' : v <= 35 ? '#FFD600' : v <= 50 ? '#FF9100' : '#E53935'; }
 function pm10Color(v) { return v <= 20 ? '#00C853' : v <= 45 ? '#FFD600' : v <= 75 ? '#FF9100' : '#E53935'; }
 function co2Color(v)  { return v <= 600 ? '#00C853' : v <= 1000 ? '#FFD600' : v <= 1500 ? '#FF9100' : '#E53935'; }
-function tvocColor(v) { return v <= 0.3 ? '#00C853' : v <= 0.5 ? '#FFD600' : v <= 1.0 ? '#FF9100' : '#E53935'; }
+function tvocColor(v) { return v <= 0.5 ? '#00C853' : v <= 1.0 ? '#FFD600' : v <= 2.0 ? '#FF9100' : '#E53935'; }
 function ch2oColor(v) { return v <= 20 ? '#00C853' : v <= 40 ? '#FFD600' : v <= 80 ? '#FF9100' : '#E53935'; }
 function lvlColor(v)  { return v <= 1 ? '#00C853' : v <= 2 ? '#FFD600' : v <= 3 ? '#FF9100' : '#E53935'; }
 function rsColor(v)   { return v >= 0.8 ? '#00C853' : v >= 0.5 ? '#FFD600' : '#E53935'; }
@@ -63,14 +63,14 @@ function catLevel(v, fn) {
   return 3;
 }
 
-// Parametr, ktory najbardziej obniza ocene jakosci powietrza.
+// Parametr, ktory najbardziej obniza ocene jakosci powietrza (bez CH2O i CO -
+// te sa pokazywane osobno i nie wplywaja na IAQ).
 function dominantCause(byId) {
   const items = [
     ['PM2.5', byId.pm25 && byId.pm25.valid ? byId.pm25.value : null, pm25Color],
     ['PM10',  byId.pm10  && byId.pm10.valid  ? byId.pm10.value  : null, pm10Color],
     ['CO₂',   byId.co2   && byId.co2.valid   ? byId.co2.value   : null, co2Color],
     ['TVOC',  byId.tvoc  && byId.tvoc.valid  ? byId.tvoc.value  : null, tvocColor],
-    ['CH₂O',  byId.ch2o  && byId.ch2o.valid  ? byId.ch2o.value  : null, ch2oColor],
   ];
   let name = null, lvl = -1;
   for (const [n, v, fn] of items) {

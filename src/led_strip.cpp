@@ -345,17 +345,23 @@ static uint8_t led_base() {
 }
 
 // --- Progi koloru powietrza ----------------------------------------------------
+// TVOC ma maly wplyw (prog zolty 1.0 ppm, czerwony 2.0 ppm) - zgodnie z IAQ.
+// Formaldehyd i CO (MQ-7/MiCS) nie steruja kolorem - pokazywane osobno.
 static bool led_over_yellow(float pm25, float pm10, float co2, float tvoc, float ch2o) {
-    return pm25 >= 35 || pm10 >= 45 || co2 >= 1000 || tvoc >= 0.5f || ch2o >= 40;
+    (void)ch2o;
+    return pm25 >= 35 || pm10 >= 45 || co2 >= 1000 || tvoc >= 1.0f;
 }
 static bool led_over_red(float pm25, float pm10, float co2, float tvoc, float ch2o) {
-    return pm25 >= 50 || pm10 >= 75 || co2 >= 1500 || tvoc >= 1.0f || ch2o >= 80;
+    (void)ch2o;
+    return pm25 >= 50 || pm10 >= 75 || co2 >= 1500 || tvoc >= 2.0f;
 }
 static bool led_under_yellow(float pm25, float pm10, float co2, float tvoc, float ch2o) {
-    return pm25 < 30 && pm10 < 40 && co2 < 900 && tvoc < 0.4f && ch2o < 30;
+    (void)ch2o;
+    return pm25 < 30 && pm10 < 40 && co2 < 900 && tvoc < 0.8f;
 }
 static bool led_under_red(float pm25, float pm10, float co2, float tvoc, float ch2o) {
-    return pm25 < 45 && pm10 < 70 && co2 < 1400 && tvoc < 0.9f && ch2o < 70;
+    (void)ch2o;
+    return pm25 < 45 && pm10 < 70 && co2 < 1400 && tvoc < 1.8f;
 }
 
 static int      s_airLevel = 0;      // 0=zielony, 1=zolty, 2=czerwony

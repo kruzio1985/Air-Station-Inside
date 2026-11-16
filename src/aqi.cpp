@@ -24,13 +24,18 @@ int aqi_from_pm25(float pm25) {
 }
 
 // --- IAQ: sub-indeks 0-500 dla jednego parametru (piecewise-linear) ----------
-// Kategorie: 50=Dobra, 100=Umiarkowana, 150=Zla, 200=Bardzo zla, 300=Niebezpieczna.
-// Progi zgodne z kolorami kafelkow (skala z uwzglednieniem bledu czujnikow).
+// Wagi zgodnie z decyzja: PM2.5 (duza) > PM10 i CO2 (srednie) > TVOC (mala).
+// Formaldehyd (CH2O) i CO (MQ-7/MiCS) NIE wplywaja na IAQ - sa pokazywane osobno.
 static const float PM25_BP[][2] = {{0,0},{10,50},{35,100},{50,150},{75,200},{150,300},{500,500}};
 static const float PM10_BP[][2] = {{0,0},{20,50},{45,100},{75,150},{100,200},{200,300},{500,500}};
 static const float CO2_BP[][2]  = {{0,0},{600,50},{1000,100},{1500,150},{2000,200},{3000,300},{5000,500}};
-static const float TVOC_BP[][2] = {{0,0},{0.3f,50},{0.5f,100},{1.0f,150},{2.0f,200},{3.0f,300},{5.0f,500}};
-static const float CH2O_BP[][2] = {{0,0},{20,50},{40,100},{80,150},{120,200},{200,300},{500,500}};
+// TVOC: ponizej 0.5 ppm w ogole nie obniza IAQ. Powyzej - rosnaca korekta:
+// 0.5->0, 1.0->30, 2.0->80, 3.0->150, 5.0->300.
+static const float TVOC_BP[][2] = {{0.5f,0},{1.0f,30},{2.0f,80},{3.0f,150},{5.0f,300}};
+
+// Wspolczynniki wplywu: PM10 i CO2 maja sredni wplyw (60% sub-indeksu).
+static const float PM10_W = 0.6f;
+static const float CO2_W  = 0.6f;
 
 static int sub_index(float v, const float bp[][2], int n) {
     if (isnan(v) || v < 0) return -1;
@@ -45,21 +50,21 @@ static int sub_index(float v, const float bp[][2], int n) {
     return (int)bp[n - 1][1];
 }
 
-IaqResult iaq_compute(float pm25, float pm10, float co2, float tvoc, float ch2o) {
-    struct { float v; const float (*bp)[2]; int n; int cause; } pars[5] = {
-        {pm25, PM25_BP, 7, 0},
-        {pm10, PM10_BP, 7, 1},
-        {co2,  CO2_BP,  7, 2},
-        {tvoc, TVOC_BP, 7, 3},
-        {ch2o, CH2O_BP, 7, 4},
-    };
+IaqResult iaq_compute(float pm25, float pm10, float co2, float tvoc) {
+    int s_pm25 = sub_index(pm25, PM25_BP, 7);
+    int s_pm10 = (int)lroundf(sub_index(pm10, PM10_BP, 7) * PM10_W);
+    int s_co2  = (int)lroundf(sub_index(co2,  CO2_BP,  7) * CO2_W);
+    int s_tvoc = sub_index(tvoc, TVOC_BP, 5);
+
     IaqResult r;
     r.score = -1;
     r.cause = -1;
-    for (auto& p : pars) {
-        int s = sub_index(p.v, p.bp, p.n);
-        if (s > r.score) { r.score = s; r.cause = p.cause; }
-    }
+    int best = -1, cause = -1;
+    if (s_pm25 > best) { best = s_pm25; cause = 0; }
+    if (s_pm10 > best) { best = s_pm10; cause = 1; }
+    if (s_co2  > best) { best = s_co2;  cause = 2; }
+    if (s_tvoc > best) { best = s_tvoc; cause = 3; }
+    if (best >= 0) { r.score = best; r.cause = cause; }
     return r;
 }
 

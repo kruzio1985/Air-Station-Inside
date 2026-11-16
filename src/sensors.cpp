@@ -86,6 +86,21 @@ static void set_ch(int idx, float v, bool valid = true) {
     if (valid) channels[idx].lastMs = millis();
 }
 
+// Srednia TVOC z ostatnich 10 minut (rekordy minutowe z ring-buffera).
+// Wygladza krotkie skoki (np. zapach z dywanu) - wg decyzji o wadze TVOC.
+static float tvoc_avg_10min() {
+    uint32_t n = agg_count();
+    if (n == 0) return NAN;
+    uint32_t start = n > 10 ? n - 10 : 0;
+    float sum = 0;
+    int cnt = 0;
+    for (uint32_t i = start; i < n; i++) {
+        MinuteRec r;
+        if (agg_get(i, r) && !isnan(r.tvoc)) { sum += r.tvoc; cnt++; }
+    }
+    return cnt ? (sum / cnt) : NAN;
+}
+
 void sensors_loop() {
     pms_loop();
     tvoc_loop();
@@ -139,13 +154,15 @@ void sensors_loop() {
     set_ch(CH_PM1_CF1,  pmOk ? agg_pm1()  : 0, pmOk);
     set_ch(CH_PM25_CF1, pmOk ? agg_pm25() : 0, pmOk);
     set_ch(CH_PM10_CF1, pmOk ? agg_pm10() : 0, pmOk);
-    // IAQ = najgorszy z parametrow (PM2.5, PM10, CO2, TVOC, CH2O), 0-500.
+    // IAQ z wagami: PM2.5 (duza) > PM10/CO2 (srednie) > TVOC (mala, srednia 10 min).
+    // Formaldehyd i CO (MQ-7/MiCS) nie wplywaja na IAQ - pokazywane osobno.
+    float tvoc10 = tvoc_avg_10min();
+    if (isnan(tvoc10) && t.valid) tvoc10 = t.tvoc;   // brak historii - biezaca wartosc
     IaqResult iaq = iaq_compute(
         pmOk     ? agg_pm25() : NAN,
         pmOk     ? agg_pm10() : NAN,
         t.valid  ? t.co2      : NAN,
-        t.valid  ? t.tvoc     : NAN,
-        t.valid  ? t.ch2o     : NAN);
+        t.valid  ? tvoc10     : NAN);
     set_ch(CH_AQI, iaq.score >= 0 ? iaq.score : 0, iaq.score >= 0);
 
     set_ch(CH_CO2,  t.co2,  t.valid);
