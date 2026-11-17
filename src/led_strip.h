@@ -9,6 +9,9 @@ void led_apply_settings();                 // po zmianie ilosci diod / jasnosci
 void led_test(uint32_t color, uint16_t ms); // podglad z www (auto-wylacza sie)
 void led_test_dots(uint16_t ms);           // diagnostyka: 4 diody w rogach lancucha
 uint8_t led_eff_brightness();              // jasnosc po limicie pradu
+uint8_t led_level_now();                   // efektywna jasnosc (po limitach dzien/noc)
+bool    led_night_now();                   // true = trwa okno nocne (godziny z NVS)
+bool    led_spared_off();                  // true = LED zgaszona oszczednosciowo (noc)
 
 void        led_set_mode(int mode, int speed, bool save); // tryb efektu (save = do NVS)
 void        led_set_order(int order, bool save);          // kolejnosci kolorow 0..5 (save = do NVS)

@@ -213,7 +213,7 @@
         <button class="btn" onclick="ledTest('8E24AA')">Test fioletowy</button>
         <button class="btn" onclick="ledTest('000000')">Wyłącz</button>
       </div>
-      <p class="hint">Kolor paska = ogólna jakość powietrza: 🟢 dobra, 🟡 podwyższone (utrzymuje się &gt;5 min), 🔴 poważnie podwyższone. Zmiana poziomu wymaga utrzymania warunku przez 5 minut (z histerezą), więc pojedynczy słabszy parametr nie powoduje migania. Czerwony FLASH = alarm (wykryty gaz MiCS / awaria czujników), widoczny zawsze.</p>
+      <p class="hint">Kolor paska = ogólna jakość powietrza: 🟢 dobra, 🟡 podwyższone (utrzymuje się &gt;5 min), 🔴 poważnie podwyższone. Zmiana poziomu wymaga utrzymania warunku przez 5 minut (z histerezą), więc pojedynczy słabszy parametr nie powoduje migania. Czerwony FLASH = alarm (wykryty gaz MiCS / awaria czujników), widoczny zawsze. W oknie nocnym matryca jest wyłączona (oszczędzanie energii) — szczegóły w Konfiguracji, karta „Oszczędzanie energii — LED".</p>
     </div>
 
     <div class="card wide">
@@ -345,6 +345,7 @@
         <label>MQTT użytkownik<input id="cfg-mqtt-user" type="text"></label>
         <label>MQTT hasło/token<input id="cfg-mqtt-pass" type="password"></label>
         <label>Prefix tematów<input id="cfg-mqtt-prefix" type="text"></label>
+        <label>Interwał publikacji MQTT [s]<input id="cfg-mqtt-ivl" type="number" min="5" max="300" step="1"></label>
         <label>Temat Z2M pojemników<input id="cfg-z2m" type="text"></label>
         <label>HA adres (URL)<input id="cfg-ha-url" type="text" placeholder="http://192.168.1.14:8123"></label>
         <label>HA token (długoterminowy)<input id="cfg-ha-token" type="password"></label>
@@ -414,6 +415,28 @@
         <button class="btn" onclick="downloadBackup()">Pobierz kopię ustawień</button>
       </div>
       <p class="hint">Przy matrycy 8×8 liczba diod jest stała (64). Efekty wybierasz też w zakładce „LED RGBIC". Tryb „Powietrze" zachowuje kolory jakości (zielony/żółty/czerwony) i alarm (czerwony flash). Wilgotność NIE steruje kolorem.</p>
+    </div>
+
+    <div class="card wide">
+      <h2>Oszczędzanie energii — LED (dzień / noc)</h2>
+      <div class="form">
+        <label>Limit jasności — dzień [%]<input id="cfg-led-day-pct" type="number" min="1" max="40" step="1"></label>
+        <label>Limit jasności — noc [%]<input id="cfg-led-night-pct" type="number" min="1" max="40" step="1"></label>
+        <label class="check"><input id="cfg-led-night-off" type="checkbox"> Nocą wyłącz LED całkowicie</label>
+        <label>Noc od (godzina)<input id="cfg-led-n-start" type="number" min="0" max="23" step="1"></label>
+        <label>Noc do (godzina)<input id="cfg-led-n-end" type="number" min="0" max="23" step="1"></label>
+        <label>Podświetl po ruchu [s]<input id="cfg-led-n-alert" type="number" min="5" max="3600" step="5"></label>
+        <label>Próg IAQ nocnego podświetlenia (0 = ignoruj)<input id="cfg-led-a-iaq" type="number" min="0" max="500" step="10"></label>
+        <label>Próg PM2.5 [µg/m³] (0 = ignoruj)<input id="cfg-led-a-pm25" type="number" min="0" max="500" step="1"></label>
+        <label>Próg CO₂ [ppm] (0 = ignoruj)<input id="cfg-led-a-co2" type="number" min="0" max="5000" step="50"></label>
+        <label class="check"><input id="cfg-mics-night-off" type="checkbox"> Wyłącz grzałkę MiCS5524 nocą</label>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="saveConfig()">Zapisz</button>
+      </div>
+      <p class="hint">Dzień: jasność jest ograniczona do podanego procentu (30–40 %) ORAZ do limitu prądu „Limit prądu (mA)" z karty wyżej. Noc: w oknie nocnym LED jest <b>całkowicie wyłączona</b> — włącza się tylko wtedy, gdy jednocześnie jakość powietrza przekracza próg (IAQ / PM2.5 / CO₂) i PIR wykryje ruch; gaśnie po podanym czasie od ostatniego ruchu. Okno „od &gt; do" (np. 22 → 6) przechodzi przez północ.</p>
+      <p class="hint">Stan teraz: <b id="led-spare-state">--</b></p>
+      <p class="hint">Grzałka MiCS5524 (EN, GPIO11): nocą może być wyłączona (oszczędność ~0,3–0,5 W), ale po włączeniu rano czujnik CO potrzebuje ~15 min na ponowne wygrzanie (do tego czasu „CO ekwiwalent" i alarm gazowy MiCS są nieaktywne — MQ-7 nadal działa).</p>
     </div>
 
     <div class="card wide">

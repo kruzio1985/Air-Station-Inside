@@ -83,7 +83,13 @@ parametr): 🟢 zielony = dobre, 🟡 żółty = podwyższone utrzymujące się 
 przez 5 minut (z histerezą), więc pojedynczy lekko podwyższony parametr nie
 powoduje migania. Czerwony FLASH = alarm krytyczny (wykryty gaz MiCS po
 wygrzaniu / awaria czujników) — widoczny zawsze, niezależnie od ruchu.
-W nocy (22–6) przyciemniony.
+
+Jasność: dzień ≤ 35 % (`led_day_pct`), noc ≤ 15 % (`led_night_pct`), dodatkowo
+limit prądu (`led_max_ma`) i twardy sufit 40 % w kodzie. W oknie nocnym
+(domyślnie 22–6) matryca jest **całkowicie wyłączona**; włącza się tylko, gdy
+jednocześnie jakość powietrza przekracza próg (IAQ / PM2.5 / CO₂) i PIR wykryje
+ruch — na 60 s od ostatniego ruchu. Szczegóły i raport oszczędności:
+[OSZCZEDZANIE_ENERGII.md](OSZCZEDZANIE_ENERGII.md).
 
 ## 8. Strona WWW
 
@@ -110,3 +116,5 @@ pio run -e esp32s3-ota -t upload --upload-port 192.168.1.141   # firmware OTA
 
 Wi-Fi, MQTT, HA (URL/token/entity), korekcja PM-RH, LED, progi, PIR, pojemniki
 filamentu, kalibracja MiCS. Wartości domyślne: `src/nvs_store.cpp`.
+Oszczędzanie energii (limity jasności dzień/noc, nocne wyłączenie LED, interwał
+MQTT): [OSZCZEDZANIE_ENERGII.md](OSZCZEDZANIE_ENERGII.md).

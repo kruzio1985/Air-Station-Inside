@@ -145,11 +145,13 @@ static const uint8_t FONT_3x3[39][3] PROGMEM = {
 };
 
 // --- Buzki 8x8 (bit0 = lewa kolumna) -------------------------------------------
-static const uint8_t FACE_HAPPY[8]   PROGMEM = {0x3C,0x42,0x81,0xA5,0x81,0x81,0x42,0x3C};
-static const uint8_t FACE_NEUTRAL[8] PROGMEM = {0x3C,0x42,0x81,0xA5,0x81,0x81,0x81,0x7E};
-static const uint8_t FACE_SAD[8]     PROGMEM = {0x3C,0x42,0x81,0xA5,0x81,0x81,0x3C,0x42};
-static const uint8_t FACE_SICK[8]    PROGMEM = {0x3C,0x42,0xA5,0x81,0xA5,0x81,0x3C,0x42};
-static const uint8_t FACE_BLINK[8]   PROGMEM = {0x3C,0x42,0x81,0x81,0x81,0x81,0x42,0x3C};
+// WYPELNIONE (pelne kolo + oczy/buzia jako "dziury"). Oczy w rzedzie 2,
+// buzia w rzedach 4-5. Usta = LUK: usmiech (rogi GORA), smutek (rogi DOL).
+static const uint8_t FACE_HAPPY[8]   PROGMEM = {0x3C,0x7E,0xDB,0xFF,0x99,0xC3,0x7E,0x3C}; // usmiech (rogi gora)
+static const uint8_t FACE_NEUTRAL[8] PROGMEM = {0x3C,0x7E,0xDB,0xFF,0xFF,0xC3,0x7E,0x3C}; // prosta buzia
+static const uint8_t FACE_SAD[8]     PROGMEM = {0x3C,0x7E,0xDB,0xFF,0xC3,0x99,0x7E,0x3C}; // smutek (rogi dol)
+static const uint8_t FACE_SICK[8]    PROGMEM = {0x3C,0x7E,0xE7,0xFF,0xC3,0x99,0x7E,0x3C}; // zle (kreska + smutek)
+static const uint8_t FACE_BLINK[8]   PROGMEM = {0x3C,0x7E,0xFF,0xFF,0xFF,0xFF,0x7E,0x3C}; // mrugniecie (zamkniete oczy)
 
 // --- Ikony pixel-art 8x8 (bit0 = lewa kolumna) ---------------------------------
 enum { ICON_TERM = 0, ICON_DROP, ICON_CLOUD, ICON_SUN, ICON_RAIN, ICON_HEART, ICON_GHOST, ICON_STAR, ICON_COUNT };
@@ -174,6 +176,10 @@ static CLEDController* s_controller = nullptr;
 static uint32_t s_testColor = 0;
 static uint32_t s_testUntil = 0;
 static uint32_t s_dotsUntil = 0;   // diagnostyka: 4 diody (indeksy lancucha)
+
+// Oszczedzanie energii: stan nocnego wylaczenia LED.
+static bool     s_sparedOff = false;      // true = obraz juz zgaszony (nie powtarzamy)
+static uint32_t s_nightShowUntil = 0;     // do kiedy LED swieci noca po ruchu [millis]
 
 // stan efektu
 static int      s_mode    = 0;
@@ -265,6 +271,15 @@ void led_apply_settings() {
     led_show();
 }
 
+// --- Polityka jasnosci ---------------------------------------------------------
+// Procent pelnego zakresu (0..255), z twardym limitem elektrycznym.
+// 40% = 102/255 - powyzej tego nie wychodzimy nigdy, niezaleznie od NVS.
+static uint8_t pct_to_level(int pct) {
+    if (pct < 1) pct = 1;
+    if (pct > LED_BRIGHT_MAX_PCT) pct = LED_BRIGHT_MAX_PCT;
+    return (uint8_t)((pct * 255) / 100);
+}
+
 // Jasnosc po limicie pradu: biala dioda ~60 mA przy 255.
 uint8_t led_eff_brightness() {
     int n = s_ledCount > 0 ? s_ledCount : (cfgLedMatrix ? MATRIX_N : cfgLedCount);
@@ -276,7 +291,7 @@ uint8_t led_eff_brightness() {
     if (maxByCurrent < 1.0f)   maxByCurrent = 1.0f;
     uint8_t b = (uint8_t)maxByCurrent;
     if (cfgLedBrightness < b) b = cfgLedBrightness;
-    if (b > LED_BRIGHT_MAX) b = LED_BRIGHT_MAX;   // twardy limit 50%
+    if (b > pct_to_level(LED_BRIGHT_MAX_PCT)) b = pct_to_level(LED_BRIGHT_MAX_PCT);
     return b;
 }
 
@@ -305,6 +320,16 @@ static void led_show() {
             default: s_out[i] = c; break;                 // GRB
         }
     }
+    // Pomijamy transmisje WS2812, gdy obraz sie nie zmienil (statyczny kolor
+    // w trybie "powietrze" i zgaszenie nocne nie marnuja CPU na bit-banging).
+    static CRGB s_prev[LED_MAX_LEDS];
+    static int  s_prevN = -1;
+    bool changed = (s_prevN != s_ledCount) ||
+                   memcmp(s_out, s_prev, (size_t)s_ledCount * sizeof(CRGB)) != 0;
+    if (!changed) return;
+    memcpy(s_prev, s_out, (size_t)s_ledCount * sizeof(CRGB));
+    s_prevN = s_ledCount;
+
     static uint32_t lastDbg = 0;
     if (millis() - lastDbg > 5000) {
         lastDbg = millis();
@@ -317,6 +342,7 @@ static void led_show() {
         LOG_I("LED dbg: br=%u max=%u (n=%d)", br, mx, s_ledCount);
     }
     FastLED.show();
+    s_sparedOff = false;
 }
 
 static void fill_rgb(uint32_t c, uint8_t bright) {
@@ -329,20 +355,29 @@ static void fill_rgb(uint32_t c, uint8_t bright) {
     led_show();
 }
 
-static bool is_night() {
+// Okno nocne wg NVS (godziny lokalne). start > end = okno przez polnoc.
+// Brak synchronizacji czasu (NTP) -> traktujemy jako dzien (LED swieci).
+bool led_night_now() {
     struct tm t;
-    if (!getLocalTime(&t, 100)) return false;
-    int h = t.tm_hour;
-    return (h >= 22 || h < 6);
+    if (!getLocalTime(&t, 50)) return false;
+    int h  = t.tm_hour;
+    int a  = cfgLedNightStart;
+    int b  = cfgLedNightEnd;
+    if (a == b) return false;                 // okno puste = brak nocy
+    if (a < b)  return (h >= a && h < b);     // np. 1..6
+    return (h >= a || h < b);                 // np. 22..6 (przez polnoc)
 }
 
-// Bazowa jasnosc z limitami: dzien max 30%, noc max 15%.
+// Bazowa jasnosc: min(jasnosc z WWW, limit pradowy, limit dzien/noc z NVS).
 static uint8_t led_base() {
     uint8_t b = led_eff_brightness();
-    uint8_t max = is_night() ? LED_BRIGHT_NIGHT_MAX : LED_BRIGHT_MAX;
-    if (b > max) b = max;
+    uint8_t cap = pct_to_level(led_night_now() ? cfgLedNightPct : cfgLedDayPct);
+    if (b > cap) b = cap;
     return b;
 }
+
+// Efektywna jasnosc uzywana do wyswietlania (do /api/status).
+uint8_t led_level_now() { return led_base(); }
 
 // --- Progi koloru powietrza ----------------------------------------------------
 // TVOC ma maly wplyw (prog zolty 1.0 ppm, czerwony 2.0 ppm) - zgodnie z IAQ.
@@ -400,7 +435,7 @@ static uint32_t current_air_color() {
     float ch2o = tvOk ? ch2oc->value : 0;
     if (led_over_red(pm25, pm10, co2, tvoc, ch2o))    return 0xE53935;
     if (led_over_yellow(pm25, pm10, co2, tvoc, ch2o)) return 0xFFD600;
-    return 0x00C853;
+    return 0x00FF00;
 }
 
 // --- Tryb: kolor jakosci powietrza (histereza 5 min + ruch) ---------------------
@@ -451,7 +486,7 @@ static void air_quality_frame(uint32_t now) {
 
     uint32_t color = (s_airLevel == 2) ? 0xE53935
                    : (s_airLevel == 1) ? 0xFFD600
-                   : 0x00C853;
+                   : 0x00FF00;
     fill_rgb(color, base);
 }
 
@@ -815,7 +850,7 @@ static void smiley_frame(uint8_t base, int sp) {
     const uint8_t* face;
     uint32_t color;
     if (score < 0)            { face = FACE_SAD;     color = 0x8E24AA; }
-    else if (score <= 50)     { face = FACE_HAPPY;   color = 0x00C853; }
+    else if (score <= 50)     { face = FACE_HAPPY;   color = 0x00FF00; }
     else if (score <= 100)    { face = FACE_NEUTRAL; color = 0xFFD600; }
     else if (score <= 150)    { face = FACE_SAD;     color = 0xFF9100; }
     else                      { face = FACE_SICK;    color = 0xE53935; }
@@ -1045,6 +1080,30 @@ static void auto_frame(uint8_t base, int sp) {
     led_show();
 }
 
+// --- Oszczedzanie energii: nocne wylaczenie LED --------------------------------
+// "Zla jakosc powietrza" = IAQ, PM2.5 albo CO2 powyzej progu z NVS.
+// Prog <= 0 wylacza dany warunek.
+static bool air_bad_now() {
+    Channel* aq  = channel_find("aqi");
+    Channel* pm  = channel_find("pm25");
+    Channel* co2 = channel_find("co2");
+    if (aq  && aq->valid  && cfgLedAlertIaq  > 0 && aq->value  >= (float)cfgLedAlertIaq)  return true;
+    if (pm  && pm->valid  && cfgLedAlertPm25 > 0 && pm->value  >= cfgLedAlertPm25)        return true;
+    if (co2 && co2->valid && cfgLedAlertCo2  > 0 && co2->value >= (float)cfgLedAlertCo2)  return true;
+    return false;
+}
+
+// Zgas LED oszczednosciowo - transmisja tylko raz, dopoki obraz sie nie zmieni.
+static void led_spare_off() {
+    if (s_sparedOff) return;
+    led_clear();
+    led_show();
+    s_sparedOff = true;
+}
+
+// Czy LED jest teraz zgaszona z powodu oszczedzania energii (do /api/status).
+bool led_spared_off() { return s_sparedOff; }
+
 void led_loop() {
     if (!s_initialized || s_ledCount == 0) return;
     uint32_t now = millis();
@@ -1056,6 +1115,26 @@ void led_loop() {
     if (now < s_testUntil) {
         fill_rgb(s_testColor, led_eff_brightness());
         return;
+    }
+
+    // Noc: LED calkowicie wylaczona. Wyjatek: zla jakosc powietrza + ruch z PIR
+    // -> LED wraca na cfgLedNightAlertS sekund, potem gasnie.
+    if (cfgLedNightOff && led_night_now()) {
+        bool allow = false;
+        if (air_bad_now()) {
+            if (motion_active()) {
+                int secs = cfgLedNightAlertS;
+                if (secs < 5)    secs = 5;
+                if (secs > 3600) secs = 3600;
+                s_nightShowUntil = now + (uint32_t)secs * 1000UL;
+            }
+            allow = (int32_t)(s_nightShowUntil - now) > 0;
+        } else {
+            s_nightShowUntil = 0;
+        }
+        if (!allow) { led_spare_off(); return; }
+    } else {
+        s_nightShowUntil = 0;
     }
 
     // Alarm (gaz / awaria czujnikow) - czerwony flash ZAWSZE, niezaleznie od trybu.

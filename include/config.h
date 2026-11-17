@@ -26,7 +26,12 @@
 // PM_corr = PM_raw / (1 + coef * (RH - prog) / (100 - prog)), dla RH > prog.
 #define PM_RH_THRESH_DEFAULT  60.0f
 #define PM_RH_COEF_DEFAULT    0.5f
-#define MQTT_INTERVAL_MS    5000     // publikacja stanu co 5 s
+// Publikacja stanu: minimalny interwal = klamra, domyslny = wartosc z NVS.
+// Krotszy interwal = wiecej transmisji WiFi (radiomodul) i szybsze rozladowanie
+// pakietow, dluzszy = wolniejsza reakcja HA. Sam interwal MQTT nie zmienia
+// zuzycia pradu w sposob zauwazalny (radio i tak pracuje w modem-sleep).
+#define MQTT_INTERVAL_MS            5000
+#define MQTT_INTERVAL_DEFAULT_MS   10000
 
 // --- Wezel pojemnikow (ESP32-C6 + 16x AHT20, MQTT) ---------------------------
 // Tematy wezla:  <Z2M_TOPIC>/box/<N>/temp|hum|meta   (N = 1..BOX_COUNT)
@@ -35,10 +40,23 @@
 
 // --- Pasek LED / matryca LED 8x8 (64 diody WS2812B) -----------------------------
 #define LED_COUNT_DEFAULT   64      // matryca 8x8; przy pasku ustaw na stronie
-#define LED_BRIGHT_DEFAULT  76      // 30% - domyslna jasnosc
-#define LED_BRIGHT_MAX      76      // twardy limit 30% jasnosci w dzien (0..255)
-#define LED_BRIGHT_NIGHT_MAX 38     // twardy limit 15% jasnosci w nocy (0..255)
-#define LED_MAX_MA_DEFAULT  2000    // limit pradu (mA) - pozwala osiagnac limity na 64 diodach
+#define LED_BRIGHT_DEFAULT  76      // 30% - domyslna jasnosc (0..255)
+#define LED_BRIGHT_MAX_PCT      40  // TWARDY limit elektryczny jasnosci [%]
+#define LED_DAY_PCT_DEFAULT     35  // dzien: limit jasnosci [%] (30..40)
+#define LED_NIGHT_PCT_DEFAULT   15  // noc: limit jasnosci [%] (5..20)
+#define LED_MAX_MA_DEFAULT  1500    // limit pradu (mA) = ~40% na 64 diodach (64*60*0.4)
+
+// --- Oszczedzanie energii: calkowite wylaczenie LED w oknie nocnym -------------
+// Okno nocne = godziny lokalne [start, end). start > end = okno przez polnoc
+// (np. 22..6). Wyjatek (budzenie): zla jakosc powietrza (IAQ/PM2.5/CO2 powyzej
+// progu) JEDNOCZESNIE z ruchem z PIR -> LED wraca na LED_NIGHT_ALERT_S sekund.
+#define LED_NIGHT_OFF_DEFAULT      true
+#define LED_NIGHT_START_DEFAULT    22
+#define LED_NIGHT_END_DEFAULT       6
+#define LED_NIGHT_ALERT_S_DEFAULT  60
+#define LED_ALERT_IAQ_DEFAULT     100    // IAQ (0..500)
+#define LED_ALERT_PM25_DEFAULT   35.0f   // PM2.5 [ug/m3]
+#define LED_ALERT_CO2_DEFAULT    1000    // CO2 [ppm]
 
 // --- Progi jakosci powietrza (kolory paska) ------------------------------------
 // AQI US EPA (z PM2.5):
@@ -72,6 +90,11 @@
 #define MICS_ADC_CHANNEL    0        // AIN0
 // Czas wygrzewania grzalki do stabilnych odczytow (15 min).
 #define MICS_WARMUP_MS      (15UL*60UL*1000UL)
+// Oszczedzanie energii: wylaczenie grzalki MiCS5524 (EN=HIGH) w oknie nocnym.
+// Uwaga: po wlaczeniu rano czujnik potrzebuje MICS_WARMUP_MS na ponowne
+// wygrzanie (baseline/CO nieaktywne przez ten czas). Domyslnie WYLACZONE
+// (grzalka grzeje stale), bo CO to czujnik bezpieczenstwa.
+#define MICS_NIGHT_OFF_DEFAULT false
 // Szacunkowa krzywa CO (datasheet: Rs/R0=0.5 @100ppm, 0.2 @1000ppm):
 //   ratio = A * C^-B  ->  C = (A/ratio)^(1/B).  A=3.125, 1/B=2.5126.
 // Uwaga: czujnik NIESELEKTYWNY - te same wartosci daje etanol/H2/NH3.

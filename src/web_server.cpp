@@ -132,6 +132,13 @@ static String apiStatusJson() {
     d["led_speed"] = led_current_speed();
     d["led_mode_name"] = led_mode_name(led_current_mode());
     d["led_order"] = cfgLedOrder;
+    // Oszczedzanie energii: stan nocnego wylaczenia LED + efektywna jasnosc.
+    d["led_night"] = led_night_now() ? 1 : 0;
+    d["led_night_off"] = cfgLedNightOff ? 1 : 0;
+    d["led_spared"] = led_spared_off() ? 1 : 0;
+    d["led_day_pct"] = cfgLedDayPct;
+    d["led_night_pct"] = cfgLedNightPct;
+    d["led_eff_level"] = led_level_now();
 
     JsonArray ch = d["channels"].to<JsonArray>();
     for (int i = 0; i < channelCount; i++) {

@@ -78,7 +78,7 @@ const char* aqi_label(int v) {
 }
 
 uint32_t aqi_color(int aqi) {
-    if (aqi <= 50)    return 0x00C853;   // zielony
+    if (aqi <= 50)    return 0x00FF00;   // zielony (czysty)
     if (aqi <= 100)   return 0xFFD600;   // zolty
     if (aqi <= 150)   return 0xFF9100;   // pomaranczowy
     if (aqi <= 200)   return 0xE53935;   // czerwony

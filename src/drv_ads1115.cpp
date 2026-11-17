@@ -2,6 +2,7 @@
 #include "pins.h"
 #include "config.h"
 #include "nvs_store.h"
+#include "led_strip.h"
 #include "syslog.h"
 #include <Adafruit_ADS1X15.h>
 #include <Wire.h>
@@ -30,15 +31,35 @@ static uint32_t s_mq7LastGoodMs = 0;
 
 // Stan grzalki sterowanej firmware (PIN_MICS_EN >= 0). EN aktywny NISKI.
 static bool s_heaterOn = true;
+static bool s_heaterNightOff = false;   // grzalka wymuszona OFF przez okno nocne
+static uint32_t s_lastHeaterMs = 0;
+
+// Zastosuj stan grzalki: "zyczenie" (www) + oszczedzanie energii (okno nocne).
+// W nocy grzalka OFF (EN=HIGH); rano wraca i zaczyna wygrzewac od nowa.
+static void ads_apply_heater() {
+#if PIN_MICS_EN >= 0
+    bool night = cfgMicsNightOff && led_night_now();
+    pinMode(PIN_MICS_EN, OUTPUT);
+    if (night) {
+        if (!s_heaterNightOff) {
+            s_heaterNightOff = true;
+            LOG_I("MiCS5524: grzalka WYLACZONA (okno nocne, oszczedzanie energii)");
+        }
+        digitalWrite(PIN_MICS_EN, HIGH);   // grzalka OFF
+    } else {
+        if (s_heaterNightOff) {
+            s_heaterNightOff = false;
+            s_startMs = millis();          // ponowne wygrzewanie po nocy
+            LOG_I("MiCS5524: grzalka WLACZONA (dzien), wygrzewanie od nowa");
+        }
+        digitalWrite(PIN_MICS_EN, s_heaterOn ? LOW : HIGH);
+    }
+#endif
+}
 
 void ads_set_heater(bool on) {
     s_heaterOn = on;
-#if PIN_MICS_EN >= 0
-    pinMode(PIN_MICS_EN, OUTPUT);
-    digitalWrite(PIN_MICS_EN, on ? LOW : HIGH);   // LOW = grzalka ON
-    LOG_I("MiCS5524: grzalka %s (EN=%s, GPIO%d)", on ? "WLACZONA" : "WYLACZONA",
-          on ? "LOW" : "HIGH", PIN_MICS_EN);
-#endif
+    ads_apply_heater();
 }
 
 bool ads_heater_on() {
@@ -65,9 +86,9 @@ void ads_begin() {
     Wire.begin(PIN_SDA, PIN_SCL);
 #if PIN_MICS_EN >= 0
     pinMode(PIN_MICS_EN, OUTPUT);
-    digitalWrite(PIN_MICS_EN, LOW);   // EN aktywny NISKIM = grzalka + czujnik WLACZONE
     s_heaterOn = true;
-    LOG_I("MiCS5524: EN=LOW (GPIO%d) = grzalka wlaczona", PIN_MICS_EN);
+    ads_apply_heater();
+    LOG_I("MiCS5524: EN=GPIO%d = grzalka wlaczona", PIN_MICS_EN);
 #endif
     ads = new Adafruit_ADS1115();
     if (ads->begin(ADS1115_I2C_ADDR, &Wire)) {
@@ -111,6 +132,12 @@ static int16_t ads_read_ch(uint8_t ch, uint32_t timeoutMs) {
 }
 
 void ads_loop() {
+    // Sterowanie grzalka (okno nocne) - co 1 s, niezaleznie od stanu ADS1115.
+    if (millis() - s_lastHeaterMs >= 1000) {
+        s_lastHeaterMs = millis();
+        ads_apply_heater();
+    }
+
     if (!ads || !s_present) {
         // proby ponownego wykrycia co 5 s
         if (millis() - s_lastScan > 5000) {

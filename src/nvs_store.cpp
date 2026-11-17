@@ -20,6 +20,7 @@ int    cfgMqttPort   = MQTT_PORT_DEFAULT;
 String cfgMqttUser   = "";           // z SEKRETY: monitoring_glances_mqtt.txt
 String cfgMqttPass   = "";
 String cfgMqttPrefix = MQTT_PREFIX_DEFAULT;
+int    cfgMqttIntervalMs = MQTT_INTERVAL_DEFAULT_MS;
 String cfgZ2mTopic   = Z2M_TOPIC_DEFAULT;
 bool   cfgBoxMetaFromNode = true;
 
@@ -49,6 +50,17 @@ int    cfgLedValueColor = 0;     // auto (kolor jakosci powietrza)
 bool   cfgLedAlwaysOn  = true;   // matryca swieci bez wzgledu na ruch
 String cfgLedText      = "";     // pusty = zegar HH:MM w trybie tekst
 
+int    cfgLedDayPct     = LED_DAY_PCT_DEFAULT;
+int    cfgLedNightPct   = LED_NIGHT_PCT_DEFAULT;
+bool   cfgLedNightOff   = LED_NIGHT_OFF_DEFAULT;
+int    cfgLedNightStart = LED_NIGHT_START_DEFAULT;
+int    cfgLedNightEnd   = LED_NIGHT_END_DEFAULT;
+int    cfgLedNightAlertS = LED_NIGHT_ALERT_S_DEFAULT;
+int    cfgLedAlertIaq   = LED_ALERT_IAQ_DEFAULT;
+float  cfgLedAlertPm25  = LED_ALERT_PM25_DEFAULT;
+int    cfgLedAlertCo2   = LED_ALERT_CO2_DEFAULT;
+
+bool   cfgMicsNightOff = MICS_NIGHT_OFF_DEFAULT;
 float  cfgMicsR0    = 0.0f;   // 0 = nie skalibrowane (pomiar surowy)
 float  cfgMq7R0     = 0.0f;   // 0 = nie skalibrowane (MQ-7, czyste powietrze)
 float  cfgPmOffset  = 0.0f;
@@ -129,6 +141,7 @@ void nvs_begin() {
     cfgMqttUser      = prefs.getString("m_user",  cfgMqttUser);
     cfgMqttPass      = prefs.getString("m_pass",  cfgMqttPass);
     cfgMqttPrefix    = prefs.getString("m_pref",  cfgMqttPrefix);
+    cfgMqttIntervalMs = prefs.getInt("m_ivl", cfgMqttIntervalMs);
     cfgZ2mTopic      = prefs.getString("z2m",     cfgZ2mTopic);
     cfgBoxMetaFromNode = prefs.getBool("box_meta", cfgBoxMetaFromNode);
 
@@ -157,7 +170,27 @@ void nvs_begin() {
     cfgLedValueColor = prefs.getInt("led_vcol",  cfgLedValueColor);
     cfgLedAlwaysOn   = prefs.getBool("led_aon",  cfgLedAlwaysOn);
     cfgLedText       = prefs.getString("led_txt", cfgLedText);
+    cfgLedDayPct     = prefs.getInt("led_day",    cfgLedDayPct);
+    cfgLedNightPct   = prefs.getInt("led_night",  cfgLedNightPct);
+    cfgLedNightOff   = prefs.getBool("led_night_off", cfgLedNightOff);
+    cfgLedNightStart = prefs.getInt("led_n_start", cfgLedNightStart);
+    cfgLedNightEnd   = prefs.getInt("led_n_end",   cfgLedNightEnd);
+    cfgLedNightAlertS= prefs.getInt("led_n_alert", cfgLedNightAlertS);
+    cfgLedAlertIaq   = prefs.getInt("led_a_iaq",   cfgLedAlertIaq);
+    cfgLedAlertPm25  = prefs.getFloat("led_a_pm",  cfgLedAlertPm25);
+    cfgLedAlertCo2   = prefs.getInt("led_a_co2",   cfgLedAlertCo2);
 
+    // Normalizacja wartosci energetycznych (NVS moze zawierac stare/skosne dane).
+    if (cfgLedDayPct   < 1) cfgLedDayPct = 1;
+    if (cfgLedDayPct   > LED_BRIGHT_MAX_PCT) cfgLedDayPct = LED_BRIGHT_MAX_PCT;
+    if (cfgLedNightPct < 1) cfgLedNightPct = 1;
+    if (cfgLedNightPct > LED_BRIGHT_MAX_PCT) cfgLedNightPct = LED_BRIGHT_MAX_PCT;
+    cfgLedNightStart = ((cfgLedNightStart % 24) + 24) % 24;
+    cfgLedNightEnd   = ((cfgLedNightEnd   % 24) + 24) % 24;
+    if (cfgMqttIntervalMs < MQTT_INTERVAL_MS) cfgMqttIntervalMs = MQTT_INTERVAL_MS;
+    if (cfgMqttIntervalMs > 300000)           cfgMqttIntervalMs = 300000;
+
+    cfgMicsNightOff  = prefs.getBool("mics_noff", cfgMicsNightOff);
     cfgMicsR0        = prefs.getFloat("cal_r0", cfgMicsR0);
     cfgMq7R0         = prefs.getFloat("mq7_r0", cfgMq7R0);
     cfgPmOffset      = prefs.getFloat("cal_pm", cfgPmOffset);
@@ -205,6 +238,7 @@ void nvs_save() {
     prefs.putString("m_user", cfgMqttUser);
     prefs.putString("m_pass", cfgMqttPass);
     prefs.putString("m_pref", cfgMqttPrefix);
+    prefs.putInt("m_ivl",     cfgMqttIntervalMs);
     prefs.putString("z2m",    cfgZ2mTopic);
     prefs.putBool("box_meta", cfgBoxMetaFromNode);
     prefs.putString("ha_url",   cfgHaUrl);
@@ -229,6 +263,16 @@ void nvs_save() {
     prefs.putInt("led_vcol",  cfgLedValueColor);
     prefs.putBool("led_aon",  cfgLedAlwaysOn);
     prefs.putString("led_txt", cfgLedText);
+    prefs.putInt("led_day",     cfgLedDayPct);
+    prefs.putInt("led_night",   cfgLedNightPct);
+    prefs.putBool("led_night_off", cfgLedNightOff);
+    prefs.putInt("led_n_start", cfgLedNightStart);
+    prefs.putInt("led_n_end",   cfgLedNightEnd);
+    prefs.putInt("led_n_alert", cfgLedNightAlertS);
+    prefs.putInt("led_a_iaq",   cfgLedAlertIaq);
+    prefs.putFloat("led_a_pm",  cfgLedAlertPm25);
+    prefs.putInt("led_a_co2",   cfgLedAlertCo2);
+    prefs.putBool("mics_noff", cfgMicsNightOff);
     prefs.putFloat("cal_r0",  cfgMicsR0);
     prefs.putFloat("mq7_r0",  cfgMq7R0);
     prefs.putFloat("cal_pm",  cfgPmOffset);
@@ -256,6 +300,7 @@ void nvs_factory_reset() {
     cfgWifiGw = "192.168.1.1";  cfgWifiDns = "192.168.1.1";
     cfgMqttHost = "192.168.1.14"; cfgMqttPort = MQTT_PORT_DEFAULT;
     cfgMqttUser = ""; cfgMqttPass = ""; cfgMqttPrefix = MQTT_PREFIX_DEFAULT;
+    cfgMqttIntervalMs = MQTT_INTERVAL_DEFAULT_MS;
     cfgZ2mTopic = Z2M_TOPIC_DEFAULT; cfgBoxMetaFromNode = true;
     cfgHaUrl = "http://192.168.1.14:8123"; cfgHaToken = "";
     cfgHaTempEntity = "sensor.temperature_humidity_sensor_5_temperatura";
@@ -269,6 +314,14 @@ void nvs_factory_reset() {
     cfgLedOrder = 0;
     cfgLedFont = 0; cfgLedValueColor = 0;
     cfgLedAlwaysOn = true; cfgLedText = "";
+    cfgLedDayPct = LED_DAY_PCT_DEFAULT; cfgLedNightPct = LED_NIGHT_PCT_DEFAULT;
+    cfgLedNightOff = LED_NIGHT_OFF_DEFAULT;
+    cfgLedNightStart = LED_NIGHT_START_DEFAULT; cfgLedNightEnd = LED_NIGHT_END_DEFAULT;
+    cfgLedNightAlertS = LED_NIGHT_ALERT_S_DEFAULT;
+    cfgLedAlertIaq = LED_ALERT_IAQ_DEFAULT;
+    cfgLedAlertPm25 = LED_ALERT_PM25_DEFAULT;
+    cfgLedAlertCo2 = LED_ALERT_CO2_DEFAULT;
+    cfgMicsNightOff = MICS_NIGHT_OFF_DEFAULT;
     cfgMicsR0 = 0; cfgMq7R0 = 0; cfgPmOffset = 0;
     cfgPmRhCorr = true; cfgPmRhThresh = PM_RH_THRESH_DEFAULT; cfgPmRhCoef = PM_RH_COEF_DEFAULT;
     cfgBoxRhWarn = BOX_RH_WARN; cfgBoxRhAlarm = BOX_RH_ALARM;
@@ -293,6 +346,7 @@ String nvs_export_json() {
     doc["mqtt_user"] = cfgMqttUser;
     doc["mqtt_pass"] = cfgMqttPass;
     doc["mqtt_prefix"] = cfgMqttPrefix;
+    doc["mqtt_interval_ms"] = cfgMqttIntervalMs;
     doc["z2m_topic"]  = cfgZ2mTopic;
     doc["box_meta_from_node"] = cfgBoxMetaFromNode;
     doc["ha_url"]        = cfgHaUrl;
@@ -317,6 +371,16 @@ String nvs_export_json() {
     doc["led_value_color"] = cfgLedValueColor;
     doc["led_always_on"] = cfgLedAlwaysOn;
     doc["led_text"]   = cfgLedText;
+    doc["led_day_pct"]      = cfgLedDayPct;
+    doc["led_night_pct"]    = cfgLedNightPct;
+    doc["led_night_off"]    = cfgLedNightOff;
+    doc["led_night_start"]  = cfgLedNightStart;
+    doc["led_night_end"]    = cfgLedNightEnd;
+    doc["led_night_alert_s"] = cfgLedNightAlertS;
+    doc["led_alert_iaq"]    = cfgLedAlertIaq;
+    doc["led_alert_pm25"]   = cfgLedAlertPm25;
+    doc["led_alert_co2"]    = cfgLedAlertCo2;
+    doc["mics_night_off"] = cfgMicsNightOff;
     doc["mics_r0"]    = cfgMicsR0;
     doc["mq7_r0"]     = cfgMq7R0;
     doc["pm_offset"]  = cfgPmOffset;
@@ -360,6 +424,7 @@ bool nvs_import_json(const String& json) {
     if (doc["mqtt_user"].is<const char*>())  cfgMqttUser = doc["mqtt_user"].as<const char*>();
     if (doc["mqtt_pass"].is<const char*>())  cfgMqttPass = doc["mqtt_pass"].as<const char*>();
     if (doc["mqtt_prefix"].is<const char*>())cfgMqttPrefix = doc["mqtt_prefix"].as<const char*>();
+    if (doc["mqtt_interval_ms"].is<int>())   cfgMqttIntervalMs = doc["mqtt_interval_ms"].as<int>();
     if (doc["z2m_topic"].is<const char*>())  cfgZ2mTopic = doc["z2m_topic"].as<const char*>();
     if (doc["box_meta_from_node"].is<bool>()) cfgBoxMetaFromNode = doc["box_meta_from_node"].as<bool>();
     if (doc["ha_url"].is<const char*>())         cfgHaUrl = doc["ha_url"].as<const char*>();
@@ -384,6 +449,17 @@ bool nvs_import_json(const String& json) {
     if (doc["led_value_color"].is<int>())    cfgLedValueColor = doc["led_value_color"].as<int>();
     if (doc["led_always_on"].is<bool>())     cfgLedAlwaysOn = doc["led_always_on"].as<bool>();
     if (doc["led_text"].is<const char*>())   cfgLedText = doc["led_text"].as<const char*>();
+    if (doc["led_day_pct"].is<int>())        cfgLedDayPct = doc["led_day_pct"].as<int>();
+    if (doc["led_night_pct"].is<int>())      cfgLedNightPct = doc["led_night_pct"].as<int>();
+    if (doc["led_night_off"].is<bool>())     cfgLedNightOff = doc["led_night_off"].as<bool>();
+    if (doc["led_night_start"].is<int>())    cfgLedNightStart = doc["led_night_start"].as<int>();
+    if (doc["led_night_end"].is<int>())      cfgLedNightEnd = doc["led_night_end"].as<int>();
+    if (doc["led_night_alert_s"].is<int>())  cfgLedNightAlertS = doc["led_night_alert_s"].as<int>();
+    if (doc["led_alert_iaq"].is<int>())      cfgLedAlertIaq = doc["led_alert_iaq"].as<int>();
+    if (doc["led_alert_pm25"].is<float>())   cfgLedAlertPm25 = doc["led_alert_pm25"].as<float>();
+    if (doc["led_alert_pm25"].is<int>())     cfgLedAlertPm25 = doc["led_alert_pm25"].as<int>();
+    if (doc["led_alert_co2"].is<int>())      cfgLedAlertCo2 = doc["led_alert_co2"].as<int>();
+    if (doc["mics_night_off"].is<bool>())     cfgMicsNightOff = doc["mics_night_off"].as<bool>();
     if (doc["mics_r0"].is<float>())          cfgMicsR0 = doc["mics_r0"].as<float>();
     if (doc["mq7_r0"].is<float>())           cfgMq7R0 = doc["mq7_r0"].as<float>();
     if (doc["pm_offset"].is<float>())        cfgPmOffset = doc["pm_offset"].as<float>();
@@ -407,6 +483,17 @@ bool nvs_import_json(const String& json) {
             if (o["target_rh"].is<float>())   boxMeta[i].targetRh = o["target_rh"].as<float>();
         }
     }
+
+    // Klamry wartosci energetycznych (import z pliku moze zawierac dowolne liczby).
+    if (cfgLedDayPct   < 1) cfgLedDayPct = 1;
+    if (cfgLedDayPct   > LED_BRIGHT_MAX_PCT) cfgLedDayPct = LED_BRIGHT_MAX_PCT;
+    if (cfgLedNightPct < 1) cfgLedNightPct = 1;
+    if (cfgLedNightPct > LED_BRIGHT_MAX_PCT) cfgLedNightPct = LED_BRIGHT_MAX_PCT;
+    cfgLedNightStart = ((cfgLedNightStart % 24) + 24) % 24;
+    cfgLedNightEnd   = ((cfgLedNightEnd   % 24) + 24) % 24;
+    if (cfgMqttIntervalMs < MQTT_INTERVAL_MS) cfgMqttIntervalMs = MQTT_INTERVAL_MS;
+    if (cfgMqttIntervalMs > 300000)           cfgMqttIntervalMs = 300000;
+
     nvs_save();
     return true;
 }

@@ -20,6 +20,7 @@ extern int    cfgMqttPort;
 extern String cfgMqttUser;
 extern String cfgMqttPass;
 extern String cfgMqttPrefix;
+extern int    cfgMqttIntervalMs;  // interwal publikacji stanu [ms] (min. MQTT_INTERVAL_MS)
 extern String cfgZ2mTopic;      // prefix tematow wezla pojemnikow (np. "filamentnode")
 extern bool   cfgBoxMetaFromNode; // aktualizuj opisy (typ/kolor/producent) z meta wezla
 
@@ -50,7 +51,19 @@ extern int    cfgLedValueColor; // kolor wartosci: 0=auto,1=bialy,2=czerwony,3=z
 extern bool   cfgLedAlwaysOn;   // true = swieci bez wzgledu na ruch (PIR)
 extern String cfgLedText;       // tekst przewijany w trybie "tekst" (pusty = zegar HH:MM)
 
+// --- Oszczedzanie energii (LED) ------------------------------------------------
+extern int    cfgLedDayPct;     // limit jasnosci w dzien [%] (1..40)
+extern int    cfgLedNightPct;   // limit jasnosci w nocy [%] (1..40)
+extern bool   cfgLedNightOff;   // true = w oknie nocnym LED calkowicie wylaczona
+extern int    cfgLedNightStart; // godzina poczatku okna nocnego (0..23)
+extern int    cfgLedNightEnd;   // godzina konca okna nocnego (0..23)
+extern int    cfgLedNightAlertS;// czas "zbudzenia" LED nocą po ruchu [s]
+extern int    cfgLedAlertIaq;   // prog IAQ dla nocnego zbudzenia (0 = ignoruj)
+extern float  cfgLedAlertPm25;  // prog PM2.5 [ug/m3] (0 = ignoruj)
+extern int    cfgLedAlertCo2;   // prog CO2 [ppm] (0 = ignoruj)
+
 // --- Kalibracja ---------------------------------------------------------------
+extern bool   cfgMicsNightOff;  // true = grzalka MiCS5524 wylaczana w oknie nocnym
 extern float  cfgMicsR0;        // napiecie MiCS5524 w czystym powietrzu [V]
 extern float  cfgMq7R0;         // napiecie MQ-7 w czystym powietrzu [V]
 extern float  cfgPmOffset;      // offset PM2.5 [ug/m3]

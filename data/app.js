@@ -155,6 +155,17 @@ function renderStatus(s) {
     pirLive.style.color = raw ? '#2ecc9a' : '#888';
   }
 
+  const spareLive = $('led-spare-state');
+  if (spareLive) {
+    const level = s.led_eff_level != null ? s.led_eff_level : 0;
+    const pct = Math.round(level * 100 / 255);
+    let txt = (s.led_night ? 'okno nocne' : 'dzień') + ' · jasność efektywna ' + pct + '%';
+    if (s.led_spared) txt += ' · LED wyłączona (oszczędzanie)';
+    else if (s.led_night_off) txt += ' · dozwolone podświetlenie alarmowe po ruchu';
+    spareLive.textContent = txt;
+    spareLive.style.color = s.led_spared ? '#888' : '#2ecc9a';
+  }
+
   // status chips
   $('chip-time').textContent = s.time || '--:--:--';
   chip('chip-wifi', s.wifi_mode === 'STA', 'WiFi ' + (s.wifi_mode || '?'));
@@ -294,6 +305,7 @@ function fillConfig(c) {
   $('cfg-mqtt-user').value = c.mqtt_user || '';
   $('cfg-mqtt-pass').value = c.mqtt_pass || '';
   $('cfg-mqtt-prefix').value = c.mqtt_prefix || '';
+  $('cfg-mqtt-ivl').value = Math.round((c.mqtt_interval_ms != null ? c.mqtt_interval_ms : 10000) / 1000);
   $('cfg-z2m').value = c.z2m_topic || '';
   $('cfg-ha-url').value = c.ha_url || '';
   $('cfg-ha-token').value = c.ha_token || '';
@@ -317,6 +329,16 @@ function fillConfig(c) {
   $('cfg-led-flipy').checked = !!c.led_flip_y;
   $('cfg-led-always-on').checked = (c.led_always_on == null) ? true : !!c.led_always_on;
   $('cfg-led-text').value = c.led_text || '';
+  $('cfg-led-day-pct').value = (c.led_day_pct != null) ? c.led_day_pct : 35;
+  $('cfg-led-night-pct').value = (c.led_night_pct != null) ? c.led_night_pct : 15;
+  $('cfg-led-night-off').checked = (c.led_night_off == null) ? true : !!c.led_night_off;
+  $('cfg-led-n-start').value = (c.led_night_start != null) ? c.led_night_start : 22;
+  $('cfg-led-n-end').value = (c.led_night_end != null) ? c.led_night_end : 6;
+  $('cfg-led-n-alert').value = (c.led_night_alert_s != null) ? c.led_night_alert_s : 60;
+  $('cfg-led-a-iaq').value = (c.led_alert_iaq != null) ? c.led_alert_iaq : 100;
+  $('cfg-led-a-pm25').value = (c.led_alert_pm25 != null) ? c.led_alert_pm25 : 35;
+  $('cfg-led-a-co2').value = (c.led_alert_co2 != null) ? c.led_alert_co2 : 1000;
+  $('cfg-mics-night-off').checked = !!c.mics_night_off;
   const LED_FX = ['air', 'rainbow', 'breathe', 'comet', 'sparkle', 'scroll', 'level', 'num', 'smiley', 'aqi', 'matrix', 'fire', 'plasma', 'bounce', 'auto', 'icons'];
   $('led-fx').value = LED_FX[c.led_mode] || 'air';
   $('led-fx-speed').value = (c.led_speed != null) ? c.led_speed : 5;
@@ -364,6 +386,7 @@ async function saveConfig() {
     mqtt_user: $('cfg-mqtt-user').value,
     mqtt_pass: $('cfg-mqtt-pass').value,
     mqtt_prefix: $('cfg-mqtt-prefix').value,
+    mqtt_interval_ms: (Math.max(5, Math.min(300, parseInt($('cfg-mqtt-ivl').value) || 10))) * 1000,
     z2m_topic: $('cfg-z2m').value,
     ha_url: $('cfg-ha-url').value,
     ha_token: $('cfg-ha-token').value,
@@ -387,6 +410,16 @@ async function saveConfig() {
     led_flip_y: $('cfg-led-flipy').checked,
     led_always_on: $('cfg-led-always-on').checked,
     led_text: $('cfg-led-text').value || '',
+    led_day_pct: parseInt($('cfg-led-day-pct').value) || 35,
+    led_night_pct: parseInt($('cfg-led-night-pct').value) || 15,
+    led_night_off: $('cfg-led-night-off').checked,
+    led_night_start: parseInt($('cfg-led-n-start').value) || 0,
+    led_night_end: parseInt($('cfg-led-n-end').value) || 0,
+    led_night_alert_s: parseInt($('cfg-led-n-alert').value) || 60,
+    led_alert_iaq: parseInt($('cfg-led-a-iaq').value) || 0,
+    led_alert_pm25: parseFloat($('cfg-led-a-pm25').value) || 0,
+    led_alert_co2: parseInt($('cfg-led-a-co2').value) || 0,
+    mics_night_off: $('cfg-mics-night-off').checked,
     box_meta_from_node: $('cfg-box-meta').checked,
     pir_enabled: $('cfg-pir-en').checked,
     pir_inverted: $('cfg-pir-inv').checked,

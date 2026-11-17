@@ -125,7 +125,11 @@ void mqtt_loop() {
     mqtt.loop();
 
     uint32_t now = millis();
-    if (now - s_lastPub >= MQTT_INTERVAL_MS) {
+    // Interwal publikacji stanu (NVS): klamra 5 s .. 300 s.
+    uint32_t pubIvl = (cfgMqttIntervalMs >= MQTT_INTERVAL_MS)
+                    ? (uint32_t)cfgMqttIntervalMs : (uint32_t)MQTT_INTERVAL_MS;
+    if (pubIvl > 300000UL) pubIvl = 300000UL;
+    if (now - s_lastPub >= pubIvl) {
         s_lastPub = now;
 
         // discovery (raz po polaczeniu)
